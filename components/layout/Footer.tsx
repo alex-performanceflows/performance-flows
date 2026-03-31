@@ -24,18 +24,20 @@ export default function Footer() {
 
           <div className="flex gap-6 text-sm text-blue-200">
             <a
-              href="https://www.iubenda.com/privacy-policy"
+              href="https://www.iubenda.com/privacy-policy/23514732"
+              className="iubenda-white iubenda-noiframe iubenda-embed hover:text-white transition"
+              title="Privacy Policy"
               target="_blank"
               rel="noopener noreferrer"
-              className="hover:text-white transition"
             >
               Privacy Policy
             </a>
             <a
-              href="https://www.iubenda.com/privacy-policy/cookie-policy"
+              href="https://www.iubenda.com/privacy-policy/23514732/cookie-policy"
+              className="iubenda-white iubenda-noiframe iubenda-embed hover:text-white transition"
+              title="Cookie Policy"
               target="_blank"
               rel="noopener noreferrer"
-              className="hover:text-white transition"
             >
               Cookie Policy
             </a>

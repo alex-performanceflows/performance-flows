@@ -23,6 +23,13 @@ export const metadata: Metadata = {
     "agenzia ecommerce Italia",
   ],
   authors: [{ name: "Performance Flows" }],
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icon.png", type: "image/png", sizes: "512x512" },
+    ],
+    apple: [{ url: "/apple-icon.png", sizes: "180x180", type: "image/png" }],
+  },
   robots: {
     index: true,
     follow: true,
@@ -56,6 +63,16 @@ export default function RootLayout({
   return (
     <html lang="it" className={`${inter.variable} h-full antialiased`}>
       <head>
+        {/* Google Analytics 4 */}
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-RLJYB22C34" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', 'G-RLJYB22C34');`,
+          }}
+        />
         {/* Google Tag Manager */}
         <script
           dangerouslySetInnerHTML={{
@@ -66,18 +83,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 })(window,document,'script','dataLayer','GTM-XXXXXXX');`,
           }}
         />
-        {/* Iubenda */}
-        <script
-          type="text/javascript"
-          dangerouslySetInnerHTML={{
-            __html: `var _iub = _iub || [];
-_iub.csConfiguration = {
-  "siteId": 0,
-  "cookiePolicyId": 0,
-  "lang": "it"
-};`,
-          }}
-        />
+        {/* Iubenda — cookie consent */}
+        <script type="text/javascript" src="https://embeds.iubenda.com/widgets/bf381bbd-7740-49f9-b833-7c4b3ab340d8.js" async />
       </head>
       <body className="min-h-full flex flex-col">
         {/* GTM noscript */}
@@ -92,6 +99,8 @@ _iub.csConfiguration = {
         <Header />
         <main className="flex-1">{children}</main>
         <Footer />
+        {/* Iubenda policy embed loader */}
+        <script type="text/javascript" src="https://cdn.iubenda.com/iubenda.js" async />
       </body>
     </html>
   );
