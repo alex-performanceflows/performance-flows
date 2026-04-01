@@ -5,20 +5,28 @@ import ScrollReveal from "@/components/ui/ScrollReveal";
 
 const faqs = [
   {
-    q: "Cosa analizzate esattamente nella chiamata di consulenza gratuita?",
-    a: "Andiamo ad analizzare la situazione del tuo store online per vedere se il metodo ProfitFlow™ può aiutarti a scalare. Catalogo prodotti, margini, tracking e campagne advertising attive.",
+    q: "La call è davvero gratuita? Non è una chiamata di vendita?",
+    a: "È una vera analisi, non un pitch. In 30 minuti analizziamo il tuo store, i tuoi margini e le campagne attive e ti diamo indicazioni concrete. Se alla fine vedi valore nel lavorare insieme, ne parliamo — senza pressioni.",
+  },
+  {
+    q: "Devo già avere campagne pubblicitarie attive?",
+    a: "Non è obbligatorio, ma è preferibile. La call è pensata per chi ha già un Shopify attivo con fatturato in corso. Se non hai ancora ads attive ma vuoi partire con il metodo giusto, possiamo comunque valutare insieme la situazione.",
+  },
+  {
+    q: "Cosa analizzate esattamente nella chiamata?",
+    a: "Margini, struttura del catalogo, tracking, campagne advertising attive e funnel. L'obiettivo è identificare i principali freni al profitto e uscire con priorità chiare da applicare subito.",
   },
   {
     q: "Di quali accessi avete bisogno?",
-    a: "Durante la prima fase non abbiamo bisogno di accessi in quanto non faremo modifiche direttamente noi (ma, volendo, potrai farle tu). NDA su richiesta.",
+    a: "Per la call gratuita non servono accessi — parliamo in base a quello che ci condividi tu. NDA disponibile su richiesta prima di qualsiasi condivisione di dati.",
+  },
+  {
+    q: "Gestiamo già lo store con un'agenzia — ha senso comunque?",
+    a: "Sì. La nostra analisi è indipendente: identifichiamo cosa manca e dove si perde profitto. Puoi usare il piano d'azione con la tua agenzia attuale, oppure valutare insieme a noi i prossimi passi.",
   },
   {
     q: "A chi è rivolto? E se siamo ancora in fase iniziale?",
-    a: "Store Shopify con ticket medio ≥ 40–50€, margine lordo ≥ 55% e volontà di scalare a profitto. Budget Google Ads ≥ €3k/mese o piano per arrivarci in 60 giorni. Siete early? Va bene, se siete disposti a sistemare tracking, feed e CRO.",
-  },
-  {
-    q: "Abbiamo già un'agenzia, questo servizio crea conflitto?",
-    a: "No. Il nostro lavoro è indipendente: diagnosi, priorità e KPI. Potete dare il piano alla vostra agenzia o chiedere a noi l'implementazione.",
+    a: "Store Shopify con ticket medio ≥ 40–50€, margine lordo ≥ 55% e volontà di scalare a profitto. Budget ads ≥ €3k/mese o piano per arrivarci in 60 giorni. Early stage? Va bene, se siete disposti a sistemare tracking, feed e CRO prima di scalare.",
   },
   {
     q: "In quanto tempo vediamo risultati?",

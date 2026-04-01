@@ -26,10 +26,12 @@ export default function Hero() {
 
       <div className="relative max-w-4xl mx-auto px-4 py-20 md:py-28 text-center w-full flex-1 flex flex-col items-center justify-center">
         <ScrollReveal>
-          <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 text-white text-xs font-semibold tracking-widest uppercase px-5 py-2 rounded-full mb-8 backdrop-blur-sm">
-            <span className="w-1.5 h-1.5 rounded-full bg-brand-orange animate-pulse" />
-            Per ecommerce Shopify che guardano{" "}
-            <span className="text-brand-orange">prima al profitto</span>
+          <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 text-white text-xs font-semibold tracking-widest uppercase px-5 py-2 rounded-full mb-8 backdrop-blur-sm max-w-[280px] md:max-w-none text-center">
+            <span className="w-1.5 h-1.5 flex-shrink-0 rounded-full bg-brand-orange animate-pulse" />
+            <span>
+              Per ecommerce Shopify che guardano{" "}
+              <span className="text-brand-orange">prima al profitto</span>
+            </span>
           </div>
         </ScrollReveal>
 
@@ -69,11 +71,11 @@ export default function Hero() {
         </ScrollReveal>
 
         <ScrollReveal delay={0.45}>
-          <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
+          <div className="mt-12 flex overflow-x-auto snap-x snap-mandatory gap-4 -mx-4 px-4 md:mx-0 md:px-0 md:grid md:grid-cols-3 pb-1 md:pb-0 w-[calc(100%+2rem)] md:w-full">
             {badges.map((badge) => (
               <div
                 key={badge.title}
-                className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-5 py-4 backdrop-blur-sm text-left"
+                className="snap-center flex-shrink-0 w-[75vw] md:w-auto flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-5 py-4 backdrop-blur-sm text-left"
               >
                 <span className="flex-shrink-0 w-5 h-5 rounded-full bg-green-500/20 border border-green-400/40 flex items-center justify-center">
                   <svg className="w-3 h-3 text-green-400" fill="currentColor" viewBox="0 0 20 20">

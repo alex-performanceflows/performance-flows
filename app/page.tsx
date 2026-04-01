@@ -3,6 +3,7 @@ import Partners from "@/components/home/Partners";
 import Problems from "@/components/home/Problems";
 import Solution from "@/components/home/Solution";
 import WhyUs from "@/components/home/WhyUs";
+import Assessment from "@/components/home/Assessment";
 import ContactForm from "@/components/home/ContactForm";
 import ReviewsCarousel from "@/components/home/ReviewsCarousel";
 import Team from "@/components/home/Team";
@@ -16,6 +17,7 @@ export default function Home() {
       <Problems />
       <Solution />
       <WhyUs />
+      <Assessment />
       <ContactForm />
       <ReviewsCarousel />
       <Team />
