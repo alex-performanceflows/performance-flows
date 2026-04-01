@@ -24,7 +24,7 @@ export default function Hero() {
       {/* Glow bottom-left */}
       <div className="absolute -bottom-40 -left-40 w-[500px] h-[500px] bg-white/5 rounded-full blur-3xl pointer-events-none" />
 
-      <div className="relative max-w-4xl mx-auto px-4 py-20 md:py-28 text-center w-full flex-1 flex flex-col items-center justify-center">
+      <div className="relative max-w-4xl mx-auto px-4 pt-32 pb-20 md:pt-36 md:pb-28 text-center w-full flex-1 flex flex-col items-center justify-center">
         <ScrollReveal>
           <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 text-white text-xs font-semibold tracking-widest uppercase px-5 py-2 rounded-full mb-8 backdrop-blur-sm max-w-[280px] md:max-w-none text-center">
             <span className="w-1.5 h-1.5 flex-shrink-0 rounded-full bg-brand-orange animate-pulse" />
