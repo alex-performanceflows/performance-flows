@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import Header from "@/components/layout/Header";
-import Footer from "@/components/layout/Footer";
 
 const inter = Inter({
   variable: "--font-geist-sans",
@@ -96,9 +94,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
             style={{ display: "none", visibility: "hidden" }}
           />
         </noscript>
-        <Header />
-        <main className="flex-1">{children}</main>
-        <Footer />
+        {children}
         {/* Iubenda policy embed loader */}
         <script type="text/javascript" src="https://cdn.iubenda.com/iubenda.js" async />
       </body>
