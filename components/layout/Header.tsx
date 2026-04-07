@@ -18,7 +18,7 @@ export default function Header() {
     <header
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
         scrolled
-          ? "bg-white/95 backdrop-blur-sm border-b border-gray-100 shadow-sm"
+          ? "bg-white/98 shadow-[0_1px_0_0_rgba(0,0,0,0.06)]"
           : "bg-transparent"
       }`}
     >
@@ -57,7 +57,7 @@ export default function Header() {
               href={`#${item.toLowerCase()}`}
               className={`transition-colors duration-300 ${
                 scrolled
-                  ? "text-gray-600 hover:text-brand-blue"
+                  ? "text-brand-text/70 hover:text-brand-blue"
                   : "text-white/90 hover:text-white"
               }`}
             >

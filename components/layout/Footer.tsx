@@ -45,7 +45,7 @@ export default function Footer() {
         </div>
 
         <div className="mt-8 pt-8 border-t border-blue-700 text-center text-sm text-blue-300">
-          © {new Date().getFullYear()} Performance Flows S.R.L. — Tutti i
+          © {new Date().getFullYear()} Performance Flows S.R.L. – Tutti i
           diritti riservati.
         </div>
       </div>

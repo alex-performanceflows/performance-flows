@@ -39,7 +39,7 @@ export default function OnlywoodPage() {
     <>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap');
-        .ow-root { font-family: 'DM Sans', sans-serif; background: #F7F4EF; color: #2A1F14; min-height: 100vh; }
+        .ow-root { font-family: 'DM Sans', sans-serif; background: #F7F4EF; color: #2A1F14; min-height: 100dvh; }
         .ow-serif { font-family: 'DM Serif Display', serif; }
         input[type=range].ow-slider { -webkit-appearance: none; width: 100%; height: 4px; border-radius: 2px; background: #EDE4D3; outline: none; cursor: pointer; }
         input[type=range].ow-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; border-radius: 50%; background: #2A1F14; border: 3px solid #F7F4EF; box-shadow: 0 0 0 1px #2A1F14; transition: transform 0.15s; }

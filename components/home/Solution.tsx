@@ -25,17 +25,28 @@ const steps = [
   },
   {
     num: "03",
-    title: "Implementazione e scaling",
-    desc: "Attiviamo il metodo ProfitFlow™: advertising orientato al profitto, tracking a prova di errore, CRO e automazioni. Numeri sul tavolo: COGS, resi, shipping e overhead.",
+    title: "Attivazione ProfitFlow™",
+    desc: "Attiviamo Google Ads con struttura orientata al margine, ottimizziamo il feed per categoria e installiamo il tracking sul profitto reale. Poi costruiamo attorno i moltiplicatori giusti — CRO, automazioni, SEO — in base a dove il tuo store ha più margine di miglioramento.",
     icon: (
       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
       </svg>
     ),
   },
+  {
+    num: "04",
+    title: "Ottimizzazione continua",
+    desc: "Ogni mese analizziamo performance per categoria di catalogo, aggiustiamo campagne e feed, e identifichiamo nuove opportunità di margine. Il tuo store migliora mese dopo mese — senza che tu debba spingere.",
+    icon: (
+      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+      </svg>
+    ),
+  },
 ];
 
 const forWho = [
+  "Store Shopify con catalogo di 200+ SKU o più categorie di prodotto",
   "Store Shopify con ticket medio ≥ 40–50€",
   "Margine lordo ≥ 55%",
   "Budget Google Ads ≥ €3k/mese (o piano per arrivarci in 60 gg)",
@@ -43,6 +54,7 @@ const forWho = [
 ];
 
 const notForWho = [
+  "Brand monoprodotto o con meno di 50 SKU",
   "Progetti di Lead Generation o solo Brand Awareness",
   "Store di dropshipping a basso margine",
   "Sito immodificabile (no interventi su UX, offerte, checkout)",
@@ -50,30 +62,30 @@ const notForWho = [
 
 export default function Solution() {
   return (
-    <section id="metodo" className="bg-white py-20 md:py-28">
+    <section id="metodo" className="bg-white py-24 md:py-36">
       <div className="max-w-6xl mx-auto px-4">
         <ScrollReveal>
           <div className="text-center mb-16">
-            <p className="text-brand-orange font-semibold text-sm uppercase tracking-widest mb-3">Come funziona</p>
+            <p className="text-brand-orange font-semibold text-sm uppercase tracking-[0.18em] mb-3">Come funziona</p>
             <h2 className="text-3xl md:text-4xl font-bold text-brand-blue mb-4">
               Il Metodo ProfitFlow™
             </h2>
             <p className="text-brand-text-light text-lg max-w-xl mx-auto">
-              Dal primo contatto alla crescita a profitto — un percorso chiaro, senza sorprese.
+              ProfitFlow™ è il motore completo per la crescita profittevole del tuo store – Google Ads come motore principale, feed, CRO, SEO e automazioni come moltiplicatori. Un percorso chiaro, senza sorprese.
             </p>
           </div>
         </ScrollReveal>
 
         {/* Steps */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
           {steps.map((step, i) => (
             <ScrollReveal key={step.num} delay={i * 0.12}>
               <div className="relative group h-full">
                 {/* Connector line */}
                 {i < steps.length - 1 && (
-                  <div className="hidden md:block absolute top-10 left-full w-full h-px bg-gradient-to-r from-brand-orange/40 to-transparent z-10 -translate-x-6" />
+                  <div className="hidden lg:block absolute top-10 left-full w-full h-px bg-gradient-to-r from-brand-orange/40 to-transparent z-10 -translate-x-6" />
                 )}
-                <div className="bg-brand-gray rounded-2xl p-6 h-full border border-gray-100 group-hover:border-brand-orange/30 group-hover:shadow-md transition-all duration-300">
+                <div className="bg-white rounded-2xl p-6 h-full border border-black/[0.06] group-hover:border-brand-orange/30 group-hover:shadow-md transition-all duration-300">
                   <div className="flex items-center gap-3 mb-4">
                     <div className="w-10 h-10 rounded-xl bg-brand-blue text-white flex items-center justify-center group-hover:bg-brand-orange transition-colors duration-300">
                       {step.icon}

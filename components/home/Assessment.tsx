@@ -95,14 +95,14 @@ const outputs = [
 
 export default function Assessment() {
   return (
-    <section className="bg-brand-gray py-20 md:py-28" id="come-funziona">
+    <section className="bg-brand-gray py-24 md:py-36" id="come-funziona">
       <div className="max-w-5xl mx-auto px-4 space-y-20">
 
         {/* Header + domande */}
         <div>
           <ScrollReveal>
             <div className="text-center mb-12">
-              <p className="text-brand-orange font-semibold text-sm uppercase tracking-widest mb-4">
+              <p className="text-brand-orange font-semibold text-sm uppercase tracking-[0.18em] mb-4">
                 Diagnosi gratuita
               </p>
               <h2 className="text-3xl md:text-4xl font-bold text-brand-blue leading-tight">
@@ -114,7 +114,7 @@ export default function Assessment() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {questions.map((q, i) => (
               <ScrollReveal key={i} delay={i * 0.08}>
-                <div className="flex items-start gap-4 bg-white border border-gray-100 rounded-2xl p-6 shadow-sm hover:border-brand-blue/20 hover:shadow-md transition-all h-full">
+                <div className="flex items-start gap-4 bg-white border border-black/[0.06] rounded-2xl p-6 shadow-sm hover:border-brand-blue/20 hover:shadow-md transition-all h-full">
                   <span className="flex-shrink-0 w-11 h-11 rounded-xl bg-brand-blue/5 border border-brand-blue/10 text-brand-blue flex items-center justify-center">
                     {q.icon}
                   </span>
@@ -155,7 +155,7 @@ export default function Assessment() {
 
         {/* Cosa ottieni */}
         <ScrollReveal>
-          <div className="bg-white border border-gray-100 rounded-2xl p-8 md:p-10 shadow-sm">
+          <div className="bg-white border border-black/[0.06] rounded-2xl p-8 md:p-10 shadow-sm">
             <h3 className="text-2xl font-bold text-brand-blue mb-6 text-center">
               Cosa ottieni dalla call
             </h3>
@@ -232,7 +232,7 @@ export default function Assessment() {
 
         {/* CTA box */}
         <ScrollReveal>
-          <div className="bg-brand-blue rounded-2xl p-8 md:p-10 text-center relative overflow-hidden">
+          <div className="bg-[#0d1040] rounded-2xl p-8 md:p-10 text-center relative overflow-hidden">
             <div className="absolute inset-0 opacity-5" style={{ backgroundImage: "radial-gradient(circle, #ffffff 1px, transparent 1px)", backgroundSize: "28px 28px" }} />
             <div className="relative">
               <p className="text-white text-lg md:text-xl font-medium leading-relaxed max-w-2xl mx-auto mb-8">

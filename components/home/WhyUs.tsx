@@ -57,39 +57,39 @@ const levers = [
 
 export default function WhyUs() {
   return (
-    <section className="bg-brand-gray py-20 md:py-28">
+    <section className="bg-brand-blue py-24 md:py-36">
       <div className="max-w-6xl mx-auto px-4">
         <ScrollReveal>
           <div className="text-center mb-16">
-            <p className="text-brand-orange font-semibold text-sm uppercase tracking-widest mb-3">Il nostro approccio</p>
-            <h2 className="text-3xl md:text-4xl font-bold text-brand-blue mb-4">
+            <p className="text-brand-orange font-medium text-xs uppercase tracking-[0.18em] mb-4">Il nostro approccio</p>
+            <h2 className="text-4xl md:text-5xl text-white mb-5">
               Perché lavorare con noi?
             </h2>
-            <p className="text-brand-text-light text-lg max-w-2xl mx-auto">
+            <p className="text-blue-200/70 text-lg max-w-2xl mx-auto">
               Siamo un team specializzato in Google Ads per e-commerce Shopify
-              con un approccio <strong>Profit-first</strong>: prima il margine,
-              poi la spesa. Il metodo <strong>ProfitFlow™</strong> allinea 5
+              con un approccio <strong className="text-white/90">Profit-first</strong>: prima il margine,
+              poi la spesa. Il metodo <strong className="text-white/90">ProfitFlow™</strong> allinea 5
               leve:
             </p>
           </div>
         </ScrollReveal>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {levers.map((lever, i) => (
             <ScrollReveal key={lever.title} delay={i * 0.08}>
-              <div className={`group bg-white rounded-2xl p-6 h-full border border-gray-100 hover:border-brand-blue/20 shadow-sm hover:shadow-lg transition-all duration-300 ${i === 4 ? "md:col-start-2" : ""}`}>
+              <div className={`group bg-white/[0.05] border border-white/10 rounded-2xl p-6 h-full hover:bg-white/[0.09] hover:border-brand-orange/30 transition-all duration-300 ${i === 4 ? "md:col-start-2" : ""}`}>
                 <div className="flex items-start gap-4 mb-4">
-                  <div className="flex-shrink-0 w-11 h-11 rounded-xl bg-brand-blue text-white flex items-center justify-center group-hover:bg-brand-orange transition-colors duration-300">
+                  <div className="flex-shrink-0 w-11 h-11 rounded-xl bg-white/10 text-white flex items-center justify-center group-hover:bg-brand-orange group-hover:text-white transition-colors duration-300">
                     {lever.icon}
                   </div>
-                  <span className="text-3xl font-black text-gray-100 group-hover:text-brand-orange/20 transition-colors leading-none mt-1">
+                  <span className="text-3xl text-white/10 group-hover:text-brand-orange/40 transition-colors leading-none mt-1">
                     {lever.num}
                   </span>
                 </div>
-                <h3 className="text-base font-bold text-brand-text mb-2">
+                <h3 className="text-sm font-semibold text-white mb-2">
                   {lever.title}
                 </h3>
-                <p className="text-brand-text-light text-sm leading-relaxed">
+                <p className="text-blue-200/60 text-sm leading-relaxed">
                   {lever.desc}
                 </p>
               </div>
@@ -98,12 +98,12 @@ export default function WhyUs() {
         </div>
 
         <ScrollReveal delay={0.5}>
-          <div className="mt-12 bg-brand-blue rounded-2xl p-6 md:p-8 text-white text-center">
-            <p className="text-lg md:text-xl font-medium">
-              <strong>Risultato:</strong> meno sprechi, CPA sostenibile, più
+          <div className="mt-10 border-t border-white/10 pt-10 text-center">
+            <p className="text-lg md:text-xl text-white/70 font-light">
+              <strong className="text-white font-semibold">Risultato:</strong> meno sprechi, CPA sostenibile, più
               margine per ordine e{" "}
-              <span className="text-brand-orange font-bold">
-                crescita scalabile
+              <span className="text-brand-orange font-semibold">
+                crescita profittevole
               </span>
               .
             </p>

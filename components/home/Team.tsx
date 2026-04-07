@@ -29,7 +29,7 @@ const team = [
 
 export default function Team() {
   return (
-    <section id="team" className="bg-brand-blue text-white py-16 md:py-24">
+    <section id="team" className="bg-brand-blue text-white py-24 md:py-36">
       <div className="max-w-6xl mx-auto px-4">
         <ScrollReveal>
           <div className="text-center mb-12">
@@ -46,7 +46,7 @@ export default function Team() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-16">
           {team.map((member, i) => (
             <ScrollReveal key={member.name} delay={i * 0.15}>
-              <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-8 border border-white/10 text-center">
+              <div className="bg-white/[0.06] backdrop-blur-sm rounded-2xl p-8 border border-white/10 text-center">
                 <div className="w-28 h-28 rounded-full mx-auto mb-4 overflow-hidden ring-4 ring-brand-orange/30">
                   <Image
                     src={member.photo}
@@ -66,6 +66,12 @@ export default function Team() {
             </ScrollReveal>
           ))}
         </div>
+
+        <ScrollReveal delay={0.25}>
+          <p className="text-center text-sm text-blue-300 max-w-2xl mx-auto mb-12 leading-relaxed">
+            Oltre a Google Ads e feed, lavoriamo su migrazione Shopify, Klaviyo, CRO e profit tracking — sempre integrati nel metodo ProfitFlow™, mai come servizi separati.
+          </p>
+        </ScrollReveal>
 
         <ScrollReveal delay={0.3}>
           <div className="text-center mb-8">

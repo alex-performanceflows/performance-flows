@@ -5,8 +5,8 @@ import ScrollReveal from "@/components/ui/ScrollReveal";
 
 const faqs = [
   {
-    q: "La call è davvero gratuita? Non è una chiamata di vendita?",
-    a: "È una vera analisi, non un pitch. In 30 minuti analizziamo il tuo store, i tuoi margini e le campagne attive e ti diamo indicazioni concrete. Se alla fine vedi valore nel lavorare insieme, ne parliamo — senza pressioni.",
+    q: "Come capite se ProfitFlow™ è adatto al mio store?",
+    a: "In 30 minuti analizziamo il tuo catalogo, i margini per categoria e le campagne Google attive. Se non c'è fit, te lo diciamo subito – senza perderti tempo. Se c'è, ti spieghiamo esattamente cosa faremmo e perché.",
   },
   {
     q: "Devo già avere campagne pubblicitarie attive?",
@@ -18,10 +18,10 @@ const faqs = [
   },
   {
     q: "Di quali accessi avete bisogno?",
-    a: "Per la call gratuita non servono accessi — parliamo in base a quello che ci condividi tu. NDA disponibile su richiesta prima di qualsiasi condivisione di dati.",
+    a: "Per la call gratuita non servono accessi – parliamo in base a quello che ci condividi tu. NDA disponibile su richiesta prima di qualsiasi condivisione di dati.",
   },
   {
-    q: "Gestiamo già lo store con un'agenzia — ha senso comunque?",
+    q: "Gestiamo già lo store con un'agenzia – ha senso comunque?",
     a: "Sì. La nostra analisi è indipendente: identifichiamo cosa manca e dove si perde profitto. Puoi usare il piano d'azione con la tua agenzia attuale, oppure valutare insieme a noi i prossimi passi.",
   },
   {
@@ -46,7 +46,7 @@ function AccordionItem({
   index: number;
 }) {
   return (
-    <div className={`rounded-2xl overflow-hidden border transition-all duration-300 ${isOpen ? "border-brand-orange/30 shadow-md" : "border-gray-100 shadow-sm"}`}>
+    <div className={`rounded-2xl overflow-hidden border transition-all duration-300 ${isOpen ? "border-brand-orange/20 shadow-md" : "border-black/[0.06] shadow-sm"}`}>
       <button
         onClick={toggle}
         className="w-full flex items-center justify-between px-6 py-5 text-left bg-white hover:bg-brand-gray/40 transition-colors"
@@ -78,11 +78,11 @@ export default function FAQ() {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
 
   return (
-    <section id="faq" className="bg-brand-gray py-20 md:py-28">
+    <section id="faq" className="bg-brand-gray py-24 md:py-36">
       <div className="max-w-3xl mx-auto px-4">
         <ScrollReveal>
           <div className="text-center mb-14">
-            <p className="text-brand-orange font-semibold text-sm uppercase tracking-widest mb-3">Hai domande?</p>
+            <p className="text-brand-orange font-semibold text-sm uppercase tracking-[0.18em] mb-3">Hai domande?</p>
             <h2 className="text-3xl md:text-4xl font-bold text-brand-blue">
               Domande Frequenti
             </h2>
