@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { queryDatabase, getNumber, getFormulaNumber, getRelation, getText, getSelect, DB } from "@/lib/notion";
+import { queryDatabase, queryDatabaseRest, getNumber, getFormulaNumber, getRelation, getText, getSelect, DB } from "@/lib/notion";
 
 const COST_PER_HOUR = 25;
 
@@ -36,6 +36,21 @@ function mergeTouchpointsByClient(
   }
 }
 
+function mergeReviewsByClient(
+  map: Record<string, ClientActivity>,
+  reviews: Awaited<ReturnType<typeof queryDatabase>>,
+) {
+  for (const rv of reviews) {
+    const p = rv.properties;
+    const clientIds = getRelation(p, "CRM Clienti");
+    const ore = getNumber(p, "Durata ore");
+    for (const cid of clientIds) {
+      if (!map[cid]) map[cid] = { ore: 0, nTask: 0, nMeeting: 0 };
+      map[cid].ore += ore;
+    }
+  }
+}
+
 export async function GET(req: NextRequest) {
   if (!process.env.NOTION_TOKEN) {
     return NextResponse.json({ error: "NOTION_TOKEN not configured" }, { status: 500 });
@@ -68,8 +83,8 @@ export async function GET(req: NextRequest) {
     const ricorrenti = contratti.filter((c) => getSelect(c.properties, "Tipo") === "Ricorrente");
     const nonRicorrenti = contratti.filter((c) => getSelect(c.properties, "Tipo") !== "Ricorrente");
 
-    // ── Fetch monthly data (task + touchpoints) ───────────────────────
-    const [monthlyTasks, monthlyTouchpoints] = await Promise.all([
+    // ── Fetch monthly data (task + touchpoints + reviews) ────────────
+    const [monthlyTasks, monthlyTouchpoints, monthlyReviews] = await Promise.all([
       queryDatabase(DB.task, {
         filter: {
           and: [
@@ -87,20 +102,31 @@ export async function GET(req: NextRequest) {
           ],
         },
       }),
+      queryDatabaseRest(DB.internalReviews, {
+        filter: {
+          and: [
+            { property: "Data Review", date: { on_or_after: start } },
+            { property: "Data Review", date: { before: end } },
+          ],
+        },
+      }),
     ]);
 
     const monthlyByClient = groupTasksByClient(monthlyTasks);
     mergeTouchpointsByClient(monthlyByClient, monthlyTouchpoints);
+    mergeReviewsByClient(monthlyByClient, monthlyReviews);
 
     // ── Fetch all-time data for non-recurring contracts ────────────────
     let allByClient: Record<string, ClientActivity> = {};
     if (nonRicorrenti.length > 0) {
-      const [allTasks, allTouchpoints] = await Promise.all([
+      const [allTasks, allTouchpoints, allReviews] = await Promise.all([
         queryDatabase(DB.task, { filter: { property: "Stato", status: { equals: "Fatto" } } }),
         queryDatabase(DB.touchpoints),
+        queryDatabaseRest(DB.internalReviews),
       ]);
       allByClient = groupTasksByClient(allTasks);
       mergeTouchpointsByClient(allByClient, allTouchpoints);
+      mergeReviewsByClient(allByClient, allReviews);
     }
 
     // ── Build recurring contracts result (monthly) ────────────────────

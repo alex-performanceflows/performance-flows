@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { queryDatabase, getNumber, getPeople, getDate, DB } from "@/lib/notion";
+import { queryDatabase, queryDatabaseRest, getNumber, getPeople, getDate, DB } from "@/lib/notion";
 
 /** Returns "YYYY-WNN" ISO week string for a date string */
 function isoWeek(dateStr: string): string {
@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const [tasks, touchpoints] = await Promise.all([
+    const [tasks, touchpoints, reviews] = await Promise.all([
       queryDatabase(DB.task, {
         filter: {
           and: [
@@ -62,6 +62,14 @@ export async function GET(req: NextRequest) {
           and: [
             { property: "Data", date: { on_or_after: from } },
             { property: "Data", date: { before: to } },
+          ],
+        },
+      }),
+      queryDatabaseRest(DB.internalReviews, {
+        filter: {
+          and: [
+            { property: "Data Review", date: { on_or_after: from } },
+            { property: "Data Review", date: { before: to } },
           ],
         },
       }),
@@ -89,6 +97,11 @@ export async function GET(req: NextRequest) {
     for (const tp of touchpoints) {
       const p = tp.properties;
       addToMatrix(getDate(p, "Data"), getNumber(p, "Durata (h)"), getPeople(p, "Partecipanti"));
+    }
+
+    for (const rv of reviews) {
+      const p = rv.properties;
+      addToMatrix(getDate(p, "Data Review"), getNumber(p, "Durata ore"), getPeople(p, "Owner"));
     }
 
     const weeks = Object.keys(matrix).sort();
