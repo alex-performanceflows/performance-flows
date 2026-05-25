@@ -669,14 +669,6 @@ const CONTACTS = [
     initials: "AD",
     color: "#1a2580",
   },
-  {
-    name: "Andrea",
-    role: "Operations & Analytics",
-    email: "andrea@performanceflows.com",
-    calendly: "https://calendly.com/andrea-performanceflows",
-    initials: "A",
-    color: "#c47b22",
-  },
 ];
 
 function ContactsSection() {
