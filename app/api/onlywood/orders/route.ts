@@ -26,9 +26,11 @@ type WcOrder = {
   customer_note: string | null;
   payment_method: string;
   payment_method_title: string;
+  discount_total: string;
   shipping_total: string;
   shipping_tax: string;
   total: string;
+  total_tax: string;
   billing: {
     first_name?: string;
     last_name?: string;
@@ -38,6 +40,19 @@ type WcOrder = {
   };
   line_items: WcLineItem[];
   refunds: WcRefundSummary[];
+};
+
+type WcAnalyticsStats = {
+  orders_count: number;
+  num_items_sold: number;
+  gross_sales: number;
+  total_sales: number;
+  coupons: number;
+  coupons_count: number;
+  refunds: number;
+  taxes: number;
+  shipping: number;
+  net_revenue: number;
 };
 
 export type OnlyWoodOrder = {
@@ -51,28 +66,52 @@ export type OnlyWoodOrder = {
   billing_state: string;
   payment_method: string;
   marketplace: string | null;
-  items_net: number;
-  shipping_net: number;
-  iva_removed: number;
-  refunds_total_incl_tax: number;
-  refunds_net: number;
-  refunds_attributed_to_items: number;
-  net_items_for_fee: number;
-  total: number;
+
+  // Numeri "come li mostra il cliente" (IVA inclusa)
+  subtotal_gross: number;      // pre-coupon (line_items.subtotal + subtotal_tax)
+  discount_gross: number;       // order.discount_total
+  refunds_gross: number;        // sum of order.refunds[].total (abs)
+  shipping_gross: number;       // shipping_total + shipping_tax
+  total: number;                // order.total (customer-paid)
+  iva_removed: number;          // IVA totale rimossa dall'ordine (items + shipping)
+
+  // Contributo net (post-coupon, post-refund) IVA inclusa e imponibile
+  net_contribution_gross: number;   // subtotal_gross - discount_gross - refunds_gross
+  net_contribution_net: number;     // ex-IVA (base fee per questo ordine)
+
   fee: number;
   items_count: number;
   items_summary: string;
   order_url: string;
 };
 
+export type WcTotalsReport = {
+  gross_sales: number;      // vendite lorde
+  coupons: number;          // codici promozionali
+  refunds: number;          // resi
+  net_revenue: number;      // vendite nette (base per fee)
+  taxes: number;            // imposte registrate da WC
+  shipping: number;         // spedizione
+  total_sales: number;      // totale delle vendite
+  orders_count: number;
+};
+
 export type OnlyWoodSummary = {
-  total_orders: number;
-  included_orders: number;
-  excluded_marketplace: number;
-  items_net_all: number;
-  net_subtotal: number;
-  shipping_net_all: number;
-  refunds_net_all: number;
+  // WC dashboard (fonte di verità)
+  wc: WcTotalsReport;
+  wc_net_revenue_ex_iva: number;  // net_revenue equivalente ex-IVA (base fee sana)
+
+  // Ordini marketplace (esclusi dal fee)
+  marketplace_orders: number;
+  marketplace_net_gross: number;
+  marketplace_net_ex_iva: number;
+
+  // Override manuali (contati dalla UI, qui a 0)
+  manually_excluded_net_gross: number;
+  manually_excluded_net_ex_iva: number;
+
+  // Base fee finale (WC net revenue - marketplace - override, ex-IVA)
+  fee_base: number;
   fee_variable: number;
   fee_fixed: number;
   fee_total: number;
@@ -82,6 +121,7 @@ export type OnlyWoodResponse = {
   month: string;
   from: string;
   to: string;
+  wc: WcTotalsReport;
   orders: OnlyWoodOrder[];
   summary: OnlyWoodSummary;
 };
@@ -93,12 +133,20 @@ const MARKETPLACE_KEYWORDS = [
   { key: "marketplace", label: "Marketplace" },
 ];
 
-const INCLUDED_STATUSES = ["pending", "processing", "on-hold", "completed"];
+// Statuti allineati a WooCommerce Analytics dashboard
+const INCLUDED_STATUSES = ["processing", "completed", "refunded"];
+
+const FEE_FIXED = 1000;
+const FEE_RATE = 0.025;
 
 function num(v: string | number | null | undefined): number {
   if (v == null) return 0;
   const n = typeof v === "number" ? v : parseFloat(v);
   return isFinite(n) ? n : 0;
+}
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
 }
 
 function detectMarketplace(order: WcOrder): string | null {
@@ -109,13 +157,10 @@ function detectMarketplace(order: WcOrder): string | null {
   return null;
 }
 
-// Bordi mese in timezone Europe/Rome, restituiti come stringhe locali senza offset
-// (WooCommerce interpreta le date senza tz secondo il timezone del sito, che è Europe/Rome)
 function monthBounds(month: string): { after: string; before: string; from: string; to: string } {
   const [y, m] = month.split("-").map(Number);
   const pad = (n: number) => String(n).padStart(2, "0");
   const firstDay = `${y}-${pad(m)}-01`;
-  // Ultimo giorno del mese: setto il giorno 0 del mese successivo
   const lastDate = new Date(Date.UTC(y, m, 0));
   const lastDay = `${y}-${pad(m)}-${pad(lastDate.getUTCDate())}`;
   return {
@@ -126,13 +171,40 @@ function monthBounds(month: string): { after: string; before: string; from: stri
   };
 }
 
-async function fetchAllOrders(month: string): Promise<WcOrder[]> {
-  const base = process.env.ONLYWOOD_API_URL;
+function wcAuth(): string {
   const ck = process.env.ONLYWOOD_CK;
   const cs = process.env.ONLYWOOD_CS;
-  if (!base || !ck || !cs) throw new Error("Credenziali OnlyWood mancanti nell'env");
+  if (!ck || !cs) throw new Error("Credenziali OnlyWood mancanti nell'env");
+  return "Basic " + Buffer.from(`${ck}:${cs}`).toString("base64");
+}
 
-  const auth = "Basic " + Buffer.from(`${ck}:${cs}`).toString("base64");
+async function fetchAnalyticsStats(month: string): Promise<WcTotalsReport> {
+  const auth = wcAuth();
+  const { after, before } = monthBounds(month);
+  const base = process.env.ONLYWOOD_API_URL?.replace(/\/wc\/v3\/?$/, "/wc-analytics");
+  const url = `${base}/reports/revenue/stats?after=${after}&before=${before}&interval=month`;
+  const res = await fetch(url, { headers: { Authorization: auth }, cache: "no-store" });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`WC Analytics ${res.status}: ${text.slice(0, 200)}`);
+  }
+  const data = (await res.json()) as { totals: WcAnalyticsStats };
+  const t = data.totals;
+  return {
+    gross_sales: round2(t.gross_sales),
+    coupons: round2(t.coupons),
+    refunds: round2(t.refunds),
+    net_revenue: round2(t.net_revenue),
+    taxes: round2(t.taxes),
+    shipping: round2(t.shipping),
+    total_sales: round2(t.total_sales),
+    orders_count: t.orders_count,
+  };
+}
+
+async function fetchAllOrders(month: string): Promise<WcOrder[]> {
+  const auth = wcAuth();
+  const base = process.env.ONLYWOOD_API_URL;
   const { after, before } = monthBounds(month);
 
   const orders: WcOrder[] = [];
@@ -162,63 +234,65 @@ async function fetchAllOrders(month: string): Promise<WcOrder[]> {
     orders.push(...batch);
     if (batch.length < perPage) break;
     page++;
-    if (page > 50) break; // safety
+    if (page > 50) break;
   }
   return orders;
+}
+
+function effectiveTaxRate(o: WcOrder): number {
+  const orderTotal = num(o.total);
+  const orderTax = num(o.total_tax) + (o.line_items ?? []).reduce((a, li) => a + num(li.total_tax), 0);
+  // WC restituisce spesso o.total_tax = shipping_tax + line_items.total_tax già aggregato,
+  // ma sommiamo indipendenti per robustezza — se WC lo raddoppia, non importa: usiamo il max ragionevole.
+  const usedTax = Math.min(num(o.total_tax) || orderTax, orderTax);
+  const net = orderTotal - usedTax;
+  if (usedTax > 0 && net > 0) return usedTax / net;
+  return 0.22; // fallback: prezzi WC senza tax class → IVA embedded 22%
 }
 
 function mapOrder(o: WcOrder): OnlyWoodOrder {
   const marketplace = detectMarketplace(o);
 
-  // Somme grezze da WooCommerce
-  const itemsRaw = (o.line_items ?? []).reduce((a, li) => a + num(li.total), 0);
-  const itemsWcTax = (o.line_items ?? []).reduce((a, li) => a + num(li.total_tax), 0);
-  const shippingRaw = num(o.shipping_total);
-  const shippingWcTax = num(o.shipping_tax);
+  // Numeri gross (IVA inclusa, come li vede il cliente)
+  const subtotalGrossItems = (o.line_items ?? []).reduce(
+    (a, li) => a + num(li.subtotal) + num(li.subtotal_tax),
+    0
+  );
+  const discountGross = num(o.discount_total);
+  const shippingGross = num(o.shipping_total) + num(o.shipping_tax);
   const orderTotal = num(o.total);
-  const orderWcTax = itemsWcTax + shippingWcTax;
 
-  // Aliquota effettiva: se WC ha registrato tax, la deduco; altrimenti assumo 22%
-  const orderNetForRate = orderTotal - orderWcTax;
-  const orderTaxRate = orderWcTax > 0 && orderNetForRate > 0
-    ? orderWcTax / orderNetForRate
-    : 0.22;
+  let refundsGross = 0;
+  for (const r of o.refunds ?? []) refundsGross += Math.abs(num(r.total));
 
-  // Netto items (imponibile): se WC ha già separato il tax uso raw, altrimenti divido
-  const itemsNet = itemsWcTax > 0
-    ? itemsRaw
-    : itemsRaw / (1 + orderTaxRate);
-  const shippingNet = shippingWcTax > 0
-    ? shippingRaw
-    : shippingRaw / (1 + orderTaxRate);
+  // Aliquota effettiva per convertire in imponibile
+  const rate = effectiveTaxRate(o);
 
-  // IVA totale rimossa dall'ordine (items + spedizione)
-  const ivaItems = itemsWcTax > 0 ? itemsWcTax : Math.max(0, itemsRaw - itemsNet);
-  const ivaShipping = shippingWcTax > 0 ? shippingWcTax : Math.max(0, shippingRaw - shippingNet);
+  // Ex-IVA per singole componenti
+  const subtotalNetItems = subtotalGrossItems / (1 + rate);
+  const shippingNet = shippingGross / (1 + rate);
+  const discountNet = discountGross / (1 + rate);
+  const refundsNet = refundsGross / (1 + rate);
+
+  // Contributo netto dell'ordine alle "vendite nette":
+  //   gross: subtotale items pre-coupon - coupon - rimborsi (IVA inclusa)
+  //   net:   ex-IVA equivalente
+  const netContributionGross = Math.max(0, subtotalGrossItems - discountGross - refundsGross);
+  const netContributionNet = Math.max(0, subtotalNetItems - discountNet - refundsNet);
+
+  // IVA rimossa dall'ordine = items IVA + shipping IVA (per informazione tabella)
+  const ivaItems = subtotalGrossItems - subtotalNetItems;
+  const ivaShipping = shippingGross - shippingNet;
   const ivaRemoved = ivaItems + ivaShipping;
 
-  // Rimborsi WC (refunds.total è sempre IVA-inclusa)
-  let refundsSumInclTax = 0;
-  for (const r of o.refunds ?? []) refundsSumInclTax += num(r.total);
-  const refundsTotalInclTax = Math.abs(refundsSumInclTax);
-  const refundsTotalNet = refundsTotalInclTax / (1 + orderTaxRate);
-
-  // Attribuzione proporzionale del rimborso alla quota items
-  const orderNetForShare = itemsNet + shippingNet;
-  const itemsShare = orderNetForShare > 0 ? itemsNet / orderNetForShare : 1;
-  const refundsAttributedToItems = refundsTotalNet * itemsShare;
-
-  const netItemsForFee = Math.max(0, itemsNet - refundsAttributedToItems);
-
-  // Fee 2,5% solo se non marketplace
-  const fee = marketplace ? 0 : netItemsForFee * 0.025;
+  // Fee per singolo ordine: 2,5% sul contributo netto ex-IVA (se non marketplace)
+  const fee = marketplace ? 0 : netContributionNet * FEE_RATE;
 
   const items = o.line_items ?? [];
-  const itemsCount = items.reduce((acc, i) => acc + (i.quantity ?? 0), 0);
-  const itemsSummary = items
-    .slice(0, 3)
-    .map((i) => `${i.name} × ${i.quantity}`)
-    .join(", ") + (items.length > 3 ? ` +${items.length - 3} altri` : "");
+  const itemsCount = items.reduce((a, i) => a + (i.quantity ?? 0), 0);
+  const itemsSummary =
+    items.slice(0, 3).map((i) => `${i.name} × ${i.quantity}`).join(", ") +
+    (items.length > 3 ? ` +${items.length - 3} altri` : "");
 
   const customerName = `${o.billing?.first_name ?? ""} ${o.billing?.last_name ?? ""}`.trim();
 
@@ -233,14 +307,14 @@ function mapOrder(o: WcOrder): OnlyWoodOrder {
     billing_state: o.billing?.state ?? "",
     payment_method: o.payment_method_title || o.payment_method || "",
     marketplace,
-    items_net: round2(itemsNet),
-    shipping_net: round2(shippingNet),
+    subtotal_gross: round2(subtotalGrossItems),
+    discount_gross: round2(discountGross),
+    refunds_gross: round2(refundsGross),
+    shipping_gross: round2(shippingGross),
+    total: round2(orderTotal),
     iva_removed: round2(ivaRemoved),
-    refunds_total_incl_tax: round2(refundsTotalInclTax),
-    refunds_net: round2(refundsTotalNet),
-    refunds_attributed_to_items: round2(refundsAttributedToItems),
-    net_items_for_fee: round2(netItemsForFee),
-    total: round2(num(o.total)),
+    net_contribution_gross: round2(netContributionGross),
+    net_contribution_net: round2(netContributionNet),
     fee: round2(fee),
     items_count: itemsCount,
     items_summary: itemsSummary,
@@ -248,29 +322,31 @@ function mapOrder(o: WcOrder): OnlyWoodOrder {
   };
 }
 
-function round2(n: number): number {
-  return Math.round(n * 100) / 100;
-}
+function summarize(wc: WcTotalsReport, orders: OnlyWoodOrder[]): OnlyWoodSummary {
+  const marketplace = orders.filter((o) => o.marketplace);
+  const marketplace_net_gross = round2(marketplace.reduce((a, o) => a + o.net_contribution_gross, 0));
+  const marketplace_net_ex_iva = round2(marketplace.reduce((a, o) => a + o.net_contribution_net, 0));
 
-function summarize(orders: OnlyWoodOrder[]): OnlyWoodSummary {
-  const included = orders.filter((o) => !o.marketplace);
-  const items_net_all = round2(orders.reduce((a, o) => a + o.items_net, 0));
-  const net_subtotal = round2(included.reduce((a, o) => a + o.net_items_for_fee, 0));
-  const shipping_net_all = round2(orders.reduce((a, o) => a + o.shipping_net, 0));
-  const refunds_net_all = round2(orders.reduce((a, o) => a + o.refunds_net, 0));
-  const fee_variable = round2(included.reduce((a, o) => a + o.fee, 0));
-  const fee_fixed = 1000;
+  // WC net_revenue è in "subtotali WC" che per OnlyWood sono per lo più IVA-inclusi (nessuna tax class).
+  // Ex-IVA aggregato = somma dei net_contribution_net di tutti gli ordini processing/completed/refunded
+  // (approssima wc.net_revenue / 1.22 con precisione, senza doppie divisioni).
+  const total_net_ex_iva = round2(orders.reduce((a, o) => a + o.net_contribution_net, 0));
+
+  const fee_base = round2(Math.max(0, total_net_ex_iva - marketplace_net_ex_iva));
+  const fee_variable = round2(fee_base * FEE_RATE);
+
   return {
-    total_orders: orders.length,
-    included_orders: included.length,
-    excluded_marketplace: orders.length - included.length,
-    items_net_all,
-    net_subtotal,
-    shipping_net_all,
-    refunds_net_all,
+    wc,
+    wc_net_revenue_ex_iva: total_net_ex_iva,
+    marketplace_orders: marketplace.length,
+    marketplace_net_gross,
+    marketplace_net_ex_iva,
+    manually_excluded_net_gross: 0,
+    manually_excluded_net_ex_iva: 0,
+    fee_base,
     fee_variable,
-    fee_fixed,
-    fee_total: round2(fee_fixed + fee_variable),
+    fee_fixed: FEE_FIXED,
+    fee_total: round2(FEE_FIXED + fee_variable),
   };
 }
 
@@ -285,12 +361,15 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Parametro 'month' non valido (formato YYYY-MM)" }, { status: 400 });
     }
 
-    const raw = await fetchAllOrders(month);
+    const [wc, raw] = await Promise.all([
+      fetchAnalyticsStats(month),
+      fetchAllOrders(month),
+    ]);
     const mapped = raw.map(mapOrder);
-    const summary = summarize(mapped);
+    const summary = summarize(wc, mapped);
     const { from, to } = monthBounds(month);
 
-    const body: OnlyWoodResponse = { month, from, to, orders: mapped, summary };
+    const body: OnlyWoodResponse = { month, from, to, wc, orders: mapped, summary };
     return NextResponse.json(body);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Errore sconosciuto";
