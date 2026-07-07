@@ -814,6 +814,53 @@ function LinkRapidiSection({ links }: { links: LinkRapido[] }) {
   );
 }
 
+// ─── Calcolo mensile CTA (OnlyWood) ───────────────────────────────────────────
+
+function CalcoloMensileCta() {
+  return (
+    <a
+      href="/clienti/onlywood/calcolo-mensile"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 12,
+        background: "linear-gradient(135deg, #1a2580 0%, #262f8f 100%)",
+        color: "#ffffff",
+        borderRadius: 12,
+        padding: "1rem 1.25rem",
+        textDecoration: "none",
+        boxShadow: "0 4px 14px rgba(26,37,128,0.18)",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <div style={{
+          width: 36, height: 36, borderRadius: 9,
+          background: "rgba(255,255,255,0.12)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          flexShrink: 0,
+        }}>
+          <svg width="18" height="18" fill="none" stroke="white" strokeWidth="2" viewBox="0 0 24 24">
+            <path d="M3 3v18h18" />
+            <path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3" />
+          </svg>
+        </div>
+        <div>
+          <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.65)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+            Report mensile
+          </p>
+          <p style={{ margin: "2px 0 0", fontSize: 15, fontWeight: 700, letterSpacing: "-0.01em" }}>
+            Calcolo fee del mese
+          </p>
+        </div>
+      </div>
+      <span style={{ fontSize: 13, fontWeight: 600, whiteSpace: "nowrap" }}>
+        Apri →
+      </span>
+    </a>
+  );
+}
+
 // ─── Main Portal View ─────────────────────────────────────────────────────────
 
 export function PortalView({ client, tasks, meetings, fatture, pacchetti, linkRapidi, slug }: Props) {
@@ -930,6 +977,7 @@ export function PortalView({ client, tasks, meetings, fatture, pacchetti, linkRa
 
         {/* Sections */}
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {slug === "onlywood" && <CalcoloMensileCta />}
           <LinkRapidiSection links={linkRapidi} />
           <TasksSection tasks={tasks} />
           <MeetingsSection meetings={meetings} />
