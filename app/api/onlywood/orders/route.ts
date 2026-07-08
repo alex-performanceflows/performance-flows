@@ -60,6 +60,7 @@ export type OnlyWoodOrder = {
   number: string;
   date: string;
   status: string;
+  is_pending: boolean;   // true se status = pending o on-hold
   customer_name: string;
   customer_email: string;
   billing_city: string;
@@ -133,8 +134,10 @@ const MARKETPLACE_KEYWORDS = [
   { key: "marketplace", label: "Marketplace" },
 ];
 
-// Statuti allineati a WooCommerce Analytics dashboard
-const INCLUDED_STATUSES = ["processing", "completed", "refunded"];
+// Statuti fetchati. I primi 3 sono quelli allineati a WooCommerce Analytics dashboard,
+// pending + on-hold vengono restituiti per il toggle "Includi ordini in sospeso".
+const INCLUDED_STATUSES = ["processing", "completed", "refunded", "pending", "on-hold"];
+const PENDING_STATUSES = new Set(["pending", "on-hold"]);
 
 const FEE_FIXED = 1000;
 const FEE_RATE = 0.025;
@@ -301,6 +304,7 @@ function mapOrder(o: WcOrder): OnlyWoodOrder {
     number: o.number,
     date: o.date_created?.slice(0, 10) ?? "",
     status: o.status,
+    is_pending: PENDING_STATUSES.has(o.status),
     customer_name: customerName || "—",
     customer_email: o.billing?.email ?? "",
     billing_city: o.billing?.city ?? "",
@@ -323,14 +327,13 @@ function mapOrder(o: WcOrder): OnlyWoodOrder {
 }
 
 function summarize(wc: WcTotalsReport, orders: OnlyWoodOrder[]): OnlyWoodSummary {
-  const marketplace = orders.filter((o) => o.marketplace);
+  // Esclude gli ordini in sospeso dal baseline (matcha WC Analytics)
+  const wcAligned = orders.filter((o) => !o.is_pending);
+  const marketplace = wcAligned.filter((o) => o.marketplace);
   const marketplace_net_gross = round2(marketplace.reduce((a, o) => a + o.net_contribution_gross, 0));
   const marketplace_net_ex_iva = round2(marketplace.reduce((a, o) => a + o.net_contribution_net, 0));
 
-  // WC net_revenue è in "subtotali WC" che per OnlyWood sono per lo più IVA-inclusi (nessuna tax class).
-  // Ex-IVA aggregato = somma dei net_contribution_net di tutti gli ordini processing/completed/refunded
-  // (approssima wc.net_revenue / 1.22 con precisione, senza doppie divisioni).
-  const total_net_ex_iva = round2(orders.reduce((a, o) => a + o.net_contribution_net, 0));
+  const total_net_ex_iva = round2(wcAligned.reduce((a, o) => a + o.net_contribution_net, 0));
 
   const fee_base = round2(Math.max(0, total_net_ex_iva - marketplace_net_ex_iva));
   const fee_variable = round2(fee_base * FEE_RATE);

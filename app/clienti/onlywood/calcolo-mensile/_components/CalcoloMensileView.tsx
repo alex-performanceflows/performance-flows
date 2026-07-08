@@ -33,6 +33,8 @@ const STATUS_STYLE: Record<string, { bg: string; color: string; label: string }>
   completed:  { bg: "rgba(22,163,74,0.12)",  color: "#16a34a", label: "Completato" },
   processing: { bg: "rgba(37,99,235,0.12)",  color: "#2563eb", label: "In lavorazione" },
   refunded:   { bg: "rgba(220,38,38,0.12)",  color: "#dc2626", label: "Rimborsato" },
+  pending:    { bg: "rgba(107,114,128,0.12)",color: "#6b7280", label: "In attesa pagamento" },
+  "on-hold":  { bg: "rgba(217,119,6,0.12)",  color: "#d97706", label: "In sospeso" },
 };
 
 const CLIENT_INFO = {
@@ -68,6 +70,7 @@ export function CalcoloMensileView({ clientName, defaultMonth }: Props) {
   const [showExcluded, setShowExcluded] = useState(true);
   const [copied, setCopied] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
+  const [includePending, setIncludePending] = useState(false);
 
   useEffect(() => { setManuallyExcluded(readExcluded(month)); }, [month]);
 
@@ -97,8 +100,13 @@ export function CalcoloMensileView({ clientName, defaultMonth }: Props) {
   const orders = data?.orders ?? [];
 
   const isIncluded = useCallback(
-    (o: OnlyWoodOrder) => !o.marketplace && !manuallyExcluded.has(o.id),
-    [manuallyExcluded]
+    (o: OnlyWoodOrder) => {
+      if (o.marketplace) return false;
+      if (manuallyExcluded.has(o.id)) return false;
+      if (o.is_pending && !includePending) return false;
+      return true;
+    },
+    [manuallyExcluded, includePending]
   );
 
   const displayedOrders = useMemo(() => {
@@ -114,30 +122,50 @@ export function CalcoloMensileView({ clientName, defaultMonth }: Props) {
     taxes: 0, shipping: 0, total_sales: 0, orders_count: 0,
   };
 
-  // Calcolo fee live con override manuali
+  // Calcolo fee live con override manuali e toggle "includi pending"
   const feeCalc = useMemo(() => {
-    const totalNetExIva = orders.reduce((a, o) => a + o.net_contribution_net, 0);
-    const marketplaceNetExIva = orders
-      .filter((o) => o.marketplace)
-      .reduce((a, o) => a + o.net_contribution_net, 0);
-    const manuallyExcludedNetExIva = orders
-      .filter((o) => !o.marketplace && manuallyExcluded.has(o.id))
-      .reduce((a, o) => a + o.net_contribution_net, 0);
-    const feeBase = Math.max(0, totalNetExIva - marketplaceNetExIva - manuallyExcludedNetExIva);
+    // Ordini pending/on-hold (sempre in sospeso, a prescindere dal toggle)
+    const pendingOrders = orders.filter((o) => o.is_pending && !o.marketplace);
+    const pendingNetExIva = round2(pendingOrders.reduce((a, o) => a + o.net_contribution_net, 0));
+
+    // Totale ex-IVA baseline: ordini processing/completed/refunded (esclusi pending) — matcha WC Analytics
+    const baselineOrders = orders.filter((o) => !o.is_pending);
+    const totalNetExIva = round2(baselineOrders.reduce((a, o) => a + o.net_contribution_net, 0));
+
+    // Marketplace (dentro il baseline WC)
+    const marketplaceBaseline = baselineOrders.filter((o) => o.marketplace);
+    const marketplaceNetExIva = round2(marketplaceBaseline.reduce((a, o) => a + o.net_contribution_net, 0));
+
+    // Esclusioni manuali (solo per ordini che sarebbero inclusi nel calcolo)
+    const wouldBeIncluded = (o: OnlyWoodOrder) =>
+      !o.marketplace && (!o.is_pending || includePending);
+    const manuallyExcludedOrders = orders.filter((o) => wouldBeIncluded(o) && manuallyExcluded.has(o.id));
+    const manuallyExcludedNetExIva = round2(
+      manuallyExcludedOrders.reduce((a, o) => a + o.net_contribution_net, 0)
+    );
+
+    // Base fee finale
+    let feeBase = totalNetExIva - marketplaceNetExIva - manuallyExcludedNetExIva;
+    if (includePending) feeBase += pendingNetExIva;
+    feeBase = Math.max(0, round2(feeBase));
+
     const feeVariable = round2(feeBase * FEE_RATE);
     return {
-      totalNetExIva: round2(totalNetExIva),
-      marketplaceNetExIva: round2(marketplaceNetExIva),
-      manuallyExcludedNetExIva: round2(manuallyExcludedNetExIva),
-      manuallyExcludedCount: orders.filter((o) => !o.marketplace && manuallyExcluded.has(o.id)).length,
-      marketplaceCount: orders.filter((o) => o.marketplace).length,
+      totalNetExIva,
+      marketplaceNetExIva,
+      pendingNetExIva,
+      pendingCount: pendingOrders.length,
+      includePending,
+      manuallyExcludedNetExIva,
+      manuallyExcludedCount: manuallyExcludedOrders.length,
+      marketplaceCount: baselineOrders.filter((o) => o.marketplace).length,
       includedCount: orders.filter(isIncluded).length,
-      feeBase: round2(feeBase),
+      feeBase,
       feeVariable,
       feeFixed: FEE_FIXED,
       feeTotal: round2(FEE_FIXED + feeVariable),
     };
-  }, [orders, manuallyExcluded, isIncluded]);
+  }, [orders, manuallyExcluded, includePending, isIncluded]);
 
   const invoiceText = useMemo(() => buildInvoiceText(month, feeCalc), [month, feeCalc]);
 
@@ -259,6 +287,17 @@ export function CalcoloMensileView({ clientName, defaultMonth }: Props) {
               subtitle="Base: vendite nette WC ex-IVA, meno ordini marketplace"
               onInfoClick={() => setInfoOpen(true)}
             />
+
+            {/* Toggle: includi ordini in sospeso */}
+            {feeCalc.pendingCount > 0 && (
+              <PendingToggle
+                includePending={includePending}
+                onChange={setIncludePending}
+                count={feeCalc.pendingCount}
+                netExIva={feeCalc.pendingNetExIva}
+              />
+            )}
+
             <div style={{
               display: "grid",
               gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
@@ -275,6 +314,13 @@ export function CalcoloMensileView({ clientName, defaultMonth }: Props) {
                 sub={`${feeCalc.marketplaceCount} ordini marketplace`}
                 negative
               />
+              {includePending && feeCalc.pendingNetExIva > 0 && (
+                <FeeCard
+                  label="Ordini in sospeso"
+                  value={`+ ${eur(feeCalc.pendingNetExIva)}`}
+                  sub={`${feeCalc.pendingCount} ordini pending/on-hold`}
+                />
+              )}
               {feeCalc.manuallyExcludedCount > 0 && (
                 <FeeCard
                   label="Esclusi manualmente"
@@ -312,6 +358,8 @@ export function CalcoloMensileView({ clientName, defaultMonth }: Props) {
                 { v: "processing", l: "In lavorazione" },
                 { v: "completed", l: "Completati" },
                 { v: "refunded", l: "Rimborsati" },
+                { v: "pending", l: "In attesa" },
+                { v: "on-hold", l: "In sospeso" },
               ].map((f) => (
                 <button key={f.v} onClick={() => setStatusFilter(f.v)} style={pillBtn(statusFilter === f.v)}>
                   {f.l}
@@ -353,6 +401,54 @@ export function CalcoloMensileView({ clientName, defaultMonth }: Props) {
           body { background: white !important; }
         }
       `}</style>
+    </div>
+  );
+}
+
+// ─── Pending toggle ───────────────────────────────────────────────
+
+function PendingToggle({ includePending, onChange, count, netExIva }: {
+  includePending: boolean;
+  onChange: (v: boolean) => void;
+  count: number;
+  netExIva: number;
+}) {
+  return (
+    <div className="pf-noprint" style={{
+      display: "flex", alignItems: "center", gap: 12,
+      background: includePending ? "rgba(217,119,6,0.06)" : "#faf9f7",
+      border: `1px solid ${includePending ? "#f3d199" : "#e8e6e3"}`,
+      borderRadius: 10,
+      padding: "0.75rem 1rem",
+      marginBottom: 12,
+      flexWrap: "wrap",
+    }}>
+      <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", flex: 1, minWidth: 260 }}>
+        <button
+          type="button"
+          onClick={() => onChange(!includePending)}
+          aria-pressed={includePending}
+          style={{
+            width: 40, height: 22, borderRadius: 20, border: "none",
+            background: includePending ? "#d97706" : "#dcdad7",
+            position: "relative", cursor: "pointer", padding: 0, flexShrink: 0,
+            transition: "background 0.15s",
+          }}
+        >
+          <span style={{
+            position: "absolute", top: 2, left: includePending ? 20 : 2,
+            width: 18, height: 18, borderRadius: "50%",
+            background: "#ffffff", boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+            transition: "left 0.15s",
+          }} />
+        </button>
+        <span onClick={() => onChange(!includePending)} style={{ fontSize: 13, color: "#0d0e1f", fontWeight: 600 }}>
+          Includi ordini in sospeso nel calcolo fee
+        </span>
+      </label>
+      <span style={{ fontSize: 12, color: "#5c5f6e" }}>
+        {count} ordini pending/on-hold · <strong style={{ color: "#0d0e1f" }}>{eur(netExIva)}</strong> imponibile
+      </span>
     </div>
   );
 }
@@ -466,7 +562,10 @@ function InfoModal({ open, onClose }: { open: boolean; onClose: () => void }) {
           </ul>
 
           <InfoStep n={1} title="Ordini considerati">
-            Statuti WooCommerce: <code>processing</code>, <code>completed</code>, <code>refunded</code>. Sono gli stessi che WooCommerce Analytics usa nel report Fatturato — puoi verificarli in <em>wp-admin → Analytics → Fatturato</em>.
+            Di default vengono considerati gli ordini con statuto <code>processing</code>, <code>completed</code> e <code>refunded</code>. Sono gli stessi che WooCommerce Analytics usa nel report Fatturato — puoi verificarli in <em>wp-admin → Analytics → Fatturato</em>.
+            <div style={{ marginTop: "0.5rem" }}>
+              Gli ordini <strong>in sospeso</strong> (<code>pending</code>, <code>on-hold</code>) sono <strong>esclusi di default</strong> perché non ancora finalizzati / pagati. Puoi decidere di includerli con il toggle giallo sopra le card della fee — utile quando prevedi che quegli ordini si concretizzeranno nel mese di competenza.
+            </div>
           </InfoStep>
 
           <InfoStep n={2} title="Vendite nette (WooCommerce)">
