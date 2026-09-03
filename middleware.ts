@@ -8,6 +8,8 @@ export function middleware(req: NextRequest) {
   // Only protect /dashboard routes (not /dashboard/login or API)
   if (!pathname.startsWith("/dashboard")) return NextResponse.next();
   if (pathname.startsWith("/dashboard/login")) return NextResponse.next();
+  // /dashboard/vitaedna ha la sua protezione leggera via ?k=
+  if (pathname.startsWith("/dashboard/vitaedna")) return NextResponse.next();
 
   const session = req.cookies.get(SESSION_COOKIE);
   if (!session?.value) {
