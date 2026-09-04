@@ -119,7 +119,7 @@ function computeVerdict(w30: CreativeMetrics, w7: CreativeMetrics | undefined): 
 }
 
 export function AdvertisingTab({ data }: { data: DashboardData }) {
-  const [sub, setSub] = useState<SubTab>("gads");
+  const [sub, setSub] = useState<SubTab>("meta");
   const b30 = data.blended?.w30;
   const bP30 = data.blended?.p30;
 
@@ -132,11 +132,11 @@ export function AdvertisingTab({ data }: { data: DashboardData }) {
       </Card>
 
       <div style={{ display: "flex", gap: 8 }}>
-        <SubtabBtn active={sub === "gads"} onClick={() => setSub("gads")}>Google Ads</SubtabBtn>
         <SubtabBtn active={sub === "meta"} onClick={() => setSub("meta")}>Meta</SubtabBtn>
+        <SubtabBtn active={sub === "gads"} onClick={() => setSub("gads")}>Google Ads</SubtabBtn>
       </div>
 
-      {sub === "gads" ? <GoogleAdsView data={data} /> : <MetaView data={data} />}
+      {sub === "meta" ? <MetaView data={data} /> : <GoogleAdsView data={data} />}
     </div>
   );
 }

@@ -25,9 +25,9 @@ export default function VitaEDnaPage() {
     setAuthorized(true);
   }
 
-  // Evita flash pre-hydration
+  // Evita flash pre-hydration (light mode è il default)
   if (!hydrated) {
-    return <div style={{ minHeight: "100dvh", background: "#06080f" }} />;
+    return <div style={{ minHeight: "100dvh", background: "#f0f6fc" }} />;
   }
 
   if (!authorized) {

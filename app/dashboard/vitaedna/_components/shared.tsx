@@ -168,8 +168,8 @@ export const ThemeContext = createContext<{
   setTheme: (t: Theme) => void;
   toggle: () => void;
 }>({
-  theme: "dark",
-  palette: DARK_PALETTE,
+  theme: "light",
+  palette: LIGHT_PALETTE,
   setTheme: () => {},
   toggle: () => {},
 });
@@ -177,7 +177,7 @@ export const ThemeContext = createContext<{
 const THEME_KEY = "pf.vitaedna.theme";
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>("dark");
+  const [theme, setThemeState] = useState<Theme>("light");
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {

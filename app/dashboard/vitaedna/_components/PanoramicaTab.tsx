@@ -2,8 +2,8 @@
 
 import { useMemo } from "react";
 import {
-  ResponsiveContainer, ComposedChart, Line, XAxis, YAxis,
-  CartesianGrid, Tooltip, Legend,
+  ResponsiveContainer, XAxis, YAxis,
+  CartesianGrid, Tooltip,
   BarChart, Bar, Cell, PieChart, Pie,
 } from "recharts";
 import {
@@ -26,10 +26,7 @@ export function PanoramicaTab({ data }: { data: DashboardData }) {
 
   const chartData = useMemo(() => buildDailyChartData(data), [data]);
   const adsRollup = useMemo(() => rollupAdsPlatforms(data, bP30), [data, bP30]);
-
-  // GSC roll-up (aggregato client-side sugli ultimi 30 giorni + 30 precedenti)
-  const gsc30 = useMemo(() => aggregateGsc(data.gsc?.daily ?? [], 30, 0), [data.gsc?.daily]);
-  const gscP30 = useMemo(() => aggregateGsc(data.gsc?.daily ?? [], 30, 30), [data.gsc?.daily]);
+  const gscDaily = useMemo(() => buildGscDailyChart(data.gsc?.daily ?? []), [data.gsc?.daily]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
@@ -40,46 +37,32 @@ export function PanoramicaTab({ data }: { data: DashboardData }) {
         <KpiTile label="Fatturato Woo" value={eur0(woo30?.revenue ?? 0)} delta={calcDelta(woo30?.revenue, wooP30?.revenue)} />
         <KpiTile label="Ordini Woo" value={integer(woo30?.orders ?? 0)} delta={calcDelta(woo30?.orders, wooP30?.orders)} />
         <KpiTile label="AOV Woo" value={eur(woo30?.aov ?? 0)} delta={calcDelta(woo30?.aov, wooP30?.aov)} />
-        <KpiTile label="Spesa adv totale" value={eur0(b30?.spend_total ?? 0)} delta={calcDelta(b30?.spend_total, bP30?.spend_total)} sub={`Meta ${eur0(b30?.spend_meta ?? 0)} · Google ${eur0(b30?.spend_gads ?? 0)}`} />
+        <KpiTile label="Spesa adv totale" value={eur0(b30?.spend_total ?? 0)} delta={calcDelta(b30?.spend_total, bP30?.spend_total)} />
         <KpiTile label="MER" value={num(b30?.mer ?? 0, 2)} delta={calcDelta(b30?.mer, bP30?.mer)} sub="Fatturato Woo / Spesa adv" />
         <KpiTile label="Sessioni GA4" value={integer(ga430?.sessions ?? 0)} delta={calcDelta(ga430?.sessions, ga4P30?.sessions)} />
-        {gsc30 && (
-          <KpiTile
-            label="Click organici GSC"
-            value={integer(gsc30.clicks)}
-            delta={calcDelta(gsc30.clicks, gscP30?.clicks)}
-            sub="Search Console · 30g"
-          />
-        )}
       </div>
 
-      {/* Combined chart 90 giorni */}
+      {/* Bar chart 90 giorni · Revenue Woo */}
       <Card>
-        <CardHeader title="Andamento 90 giorni · Revenue Woo (€) e Sessioni GA4" />
+        <CardHeader title="Andamento fatturato · Ultimi 90 giorni" />
         {chartData.length === 0 ? (
           <EmptyState label="Nessun dato giornaliero disponibile" />
         ) : (
           <div style={{ width: "100%", height: 320 }}>
             <ResponsiveContainer>
-              <ComposedChart data={chartData} margin={{ top: 10, right: 12, bottom: 4, left: 12 }}>
+              <BarChart data={chartData} margin={{ top: 10, right: 12, bottom: 4, left: 12 }}>
                 <CartesianGrid stroke={palette.grid} vertical={false} />
                 <XAxis dataKey="dateLabel"
                   tick={{ fill: palette.axis, fontSize: 11 }}
                   axisLine={{ stroke: palette.cardBorder }} tickLine={false}
                   interval="preserveStartEnd" minTickGap={30} />
-                <YAxis yAxisId="left"
-                  tick={{ fill: "#64CBFF", fontSize: 11 }}
+                <YAxis
+                  tick={{ fill: palette.axis, fontSize: 11 }}
                   axisLine={{ stroke: palette.cardBorder }} tickLine={false}
                   tickFormatter={(v) => eur0(Number(v))} width={70} />
-                <YAxis yAxisId="right" orientation="right"
-                  tick={{ fill: "#EB9115", fontSize: 11 }}
-                  axisLine={{ stroke: palette.cardBorder }} tickLine={false}
-                  tickFormatter={(v) => integer(Number(v))} width={60} />
-                <Tooltip content={<DualTooltip />} />
-                <Legend wrapperStyle={{ fontSize: 11, color: palette.textMuted }} iconType="line" />
-                <Line yAxisId="left" type="monotone" dataKey="revenue" name="Revenue Woo" stroke="#64CBFF" strokeWidth={2} dot={false} />
-                <Line yAxisId="right" type="monotone" dataKey="sessions" name="Sessioni GA4" stroke="#EB9115" strokeWidth={2} dot={false} />
-              </ComposedChart>
+                <Tooltip content={<RevenueTooltip />} cursor={{ fill: palette.buttonHover }} />
+                <Bar dataKey="revenue" name="Revenue Woo" fill="#64CBFF" radius={[3, 3, 0, 0]} />
+              </BarChart>
             </ResponsiveContainer>
           </div>
         )}
@@ -138,6 +121,32 @@ export function PanoramicaTab({ data }: { data: DashboardData }) {
           <TopCountries data={data} />
         </Card>
       </div>
+
+      {/* Click organici giornalieri (GSC) */}
+      <Card>
+        <CardHeader title="Click organici giornalieri · Search Console" />
+        {gscDaily.length === 0 ? (
+          <EmptyState label="In attesa dei primi dati Search Console" />
+        ) : (
+          <div style={{ width: "100%", height: 260 }}>
+            <ResponsiveContainer>
+              <BarChart data={gscDaily} margin={{ top: 10, right: 12, bottom: 4, left: 12 }}>
+                <CartesianGrid stroke={palette.grid} vertical={false} />
+                <XAxis dataKey="dateLabel"
+                  tick={{ fill: palette.axis, fontSize: 11 }}
+                  axisLine={{ stroke: palette.cardBorder }} tickLine={false}
+                  interval="preserveStartEnd" minTickGap={30} />
+                <YAxis
+                  tick={{ fill: palette.axis, fontSize: 11 }}
+                  axisLine={{ stroke: palette.cardBorder }} tickLine={false}
+                  tickFormatter={(v) => integer(Number(v))} width={50} />
+                <Tooltip content={<GscClicksTooltip />} cursor={{ fill: palette.buttonHover }} />
+                <Bar dataKey="clicks" name="Click" fill="#96C228" radius={[3, 3, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </Card>
     </div>
   );
 }
@@ -574,23 +583,22 @@ function buildDailyChartData(data: DashboardData): Row[] {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function DualTooltip({ active, payload, label }: any) {
+function RevenueTooltip({ active, payload, label }: any) {
   const { palette } = useTheme();
   if (!active || !payload?.length) return null;
+  const p = payload[0];
   return (
     <div style={{
       background: palette.tooltipBg,
       border: `1px solid ${palette.tooltipBorder}`,
       borderRadius: 8, padding: "0.6rem 0.75rem",
       fontSize: 12, color: palette.text,
-      boxShadow: "0 4px 20px rgba(0,0,0,0.3)",
+      boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
     }}>
       <p style={{ margin: 0, fontWeight: 600, marginBottom: 4 }}>{label}</p>
-      {payload.map((p: { dataKey: string; name: string; value: number; color: string }) => (
-        <p key={p.dataKey} style={{ margin: 0, color: p.color, fontVariantNumeric: "tabular-nums" }}>
-          {p.name}: {p.dataKey === "revenue" ? eur(p.value) : integer(p.value)}
-        </p>
-      ))}
+      <p style={{ margin: 0, color: p.color, fontVariantNumeric: "tabular-nums" }}>
+        Revenue Woo: {eur(Number(p.value ?? 0))}
+      </p>
     </div>
   );
 }
@@ -600,20 +608,36 @@ function labelize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-// GSC aggregation: prende gli ultimi `days` giorni saltando `offsetFromEnd` dalla coda (per periodo precedente)
-function aggregateGsc(daily: (string | number)[][], days: number, offsetFromEnd: number): { clicks: number; imps: number } | null {
-  if (!daily || daily.length === 0) return null;
-  const sorted = [...daily]
-    .filter((r) => r && r.length >= 5)
-    .sort((a, b) => String(a[0]).localeCompare(String(b[0])));
-  const end = sorted.length - offsetFromEnd;
-  const start = Math.max(0, end - days);
-  const slice = sorted.slice(start, end);
-  if (slice.length === 0) return null;
-  let clicks = 0, imps = 0;
-  for (const r of slice) {
-    clicks += Number(r[1]) || 0;
-    imps += Number(r[2]) || 0;
-  }
-  return { clicks, imps };
+// Ultimi 90 giorni di click organici da gsc.daily, ordinati asc
+function buildGscDailyChart(daily: (string | number)[][]): { date: string; dateLabel: string; clicks: number }[] {
+  if (!daily || daily.length === 0) return [];
+  return [...daily]
+    .filter((r) => r && r.length >= 2)
+    .sort((a, b) => String(a[0]).localeCompare(String(b[0])))
+    .slice(-90)
+    .map((r) => {
+      const date = String(r[0] ?? "");
+      return { date, dateLabel: fmtDate(date), clicks: Number(r[1]) || 0 };
+    });
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function GscClicksTooltip({ active, payload, label }: any) {
+  const { palette } = useTheme();
+  if (!active || !payload?.length) return null;
+  const v = Number(payload[0].value ?? 0);
+  return (
+    <div style={{
+      background: palette.tooltipBg,
+      border: `1px solid ${palette.tooltipBorder}`,
+      borderRadius: 8, padding: "0.5rem 0.7rem",
+      fontSize: 12, color: palette.text,
+      boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
+    }}>
+      <p style={{ margin: 0, fontWeight: 600, marginBottom: 2 }}>{label}</p>
+      <p style={{ margin: 0, color: "#96C228", fontVariantNumeric: "tabular-nums" }}>
+        Click organici: {integer(v)}
+      </p>
+    </div>
+  );
 }
