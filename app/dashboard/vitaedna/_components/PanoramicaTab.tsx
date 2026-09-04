@@ -34,12 +34,18 @@ export function PanoramicaTab({ data }: { data: DashboardData }) {
 
       {/* KPI cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
-        <KpiTile label="Fatturato Woo" value={eur0(woo30?.revenue ?? 0)} delta={calcDelta(woo30?.revenue, wooP30?.revenue)} />
-        <KpiTile label="Ordini Woo" value={integer(woo30?.orders ?? 0)} delta={calcDelta(woo30?.orders, wooP30?.orders)} />
-        <KpiTile label="AOV Woo" value={eur(woo30?.aov ?? 0)} delta={calcDelta(woo30?.aov, wooP30?.aov)} />
-        <KpiTile label="Spesa adv totale" value={eur0(b30?.spend_total ?? 0)} delta={calcDelta(b30?.spend_total, bP30?.spend_total)} />
-        <KpiTile label="MER" value={num(b30?.mer ?? 0, 2)} delta={calcDelta(b30?.mer, bP30?.mer)} sub="Fatturato Woo / Spesa adv" />
-        <KpiTile label="Sessioni GA4" value={integer(ga430?.sessions ?? 0)} delta={calcDelta(ga430?.sessions, ga4P30?.sessions)} />
+        <KpiTile label="Fatturato Woo" value={eur0(woo30?.revenue ?? 0)} delta={calcDelta(woo30?.revenue, wooP30?.revenue)}
+          info="Somma dei ricavi lordi WooCommerce negli ultimi 30 giorni" />
+        <KpiTile label="Ordini Woo" value={integer(woo30?.orders ?? 0)} delta={calcDelta(woo30?.orders, wooP30?.orders)}
+          info="Numero di ordini WooCommerce completati negli ultimi 30 giorni" />
+        <KpiTile label="AOV Woo" value={eur(woo30?.aov ?? 0)} delta={calcDelta(woo30?.aov, wooP30?.aov)}
+          info="Valore medio ordine (Average Order Value): fatturato ÷ numero ordini" />
+        <KpiTile label="Spesa adv totale" value={eur0(b30?.spend_total ?? 0)} delta={calcDelta(b30?.spend_total, bP30?.spend_total)}
+          info="Investimento totale advertising negli ultimi 30g: somma di Meta Ads + Google Ads" />
+        <KpiTile label="MER" value={num(b30?.mer ?? 0, 2)} delta={calcDelta(b30?.mer, bP30?.mer)}
+          info="Marketing Efficiency Ratio: Fatturato Woo ÷ Spesa adv totale. Un MER di 2,00 significa 2€ di ricavi per ogni 1€ investito in advertising" />
+        <KpiTile label="Sessioni GA4" value={integer(ga430?.sessions ?? 0)} delta={calcDelta(ga430?.sessions, ga4P30?.sessions)}
+          info="Numero di sessioni registrate da Google Analytics 4 negli ultimi 30 giorni" />
       </div>
 
       {/* Bar chart 90 giorni · Revenue Woo */}

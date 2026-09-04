@@ -325,22 +325,45 @@ export function CardHeader({ title, right }: { title: string; right?: React.Reac
 }
 
 export function KpiTile({
-  label, value, delta, accent, sub,
+  label, value, delta, accent, sub, info,
 }: {
   label: string;
   value: string;
   delta?: DeltaInfo | null;
   accent?: string;
   sub?: string;
+  info?: string;      // testo esplicativo mostrato su hover dell'icona (i)
 }) {
   const { palette } = useTheme();
   return (
-    <Card padding={18}>
-      <p style={{
-        margin: 0, fontSize: 10, fontWeight: 700,
-        color: palette.textDim,
-        letterSpacing: "0.08em", textTransform: "uppercase",
-      }}>{label}</p>
+    <Card padding={18} style={{ position: "relative" }}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 6 }}>
+        <p style={{
+          margin: 0, fontSize: 10, fontWeight: 700,
+          color: palette.textDim,
+          letterSpacing: "0.08em", textTransform: "uppercase",
+        }}>{label}</p>
+        {info && (
+          <span
+            role="img"
+            aria-label={`Info: ${info}`}
+            title={info}
+            style={{
+              flexShrink: 0,
+              width: 16, height: 16, borderRadius: "50%",
+              border: `1px solid ${palette.cardBorder}`,
+              background: palette.buttonHover,
+              color: palette.textDim,
+              display: "inline-flex", alignItems: "center", justifyContent: "center",
+              fontSize: 10, fontWeight: 700, fontFamily: "'Times New Roman', serif",
+              fontStyle: "italic", lineHeight: 1,
+              cursor: "help",
+            }}
+          >
+            i
+          </span>
+        )}
+      </div>
       <p style={{
         margin: "0.4rem 0 0",
         fontSize: 22, fontWeight: 700, letterSpacing: "-0.02em",

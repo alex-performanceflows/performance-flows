@@ -82,23 +82,25 @@ export function SEOTab({ data }: { data: DashboardData }) {
           label="Click organici"
           value={integer(agg.clicks)}
           delta={calcDelta(agg.clicks, aggPrev?.clicks)}
+          info="Numero di click da risultati organici Google negli ultimi 30 giorni disponibili in Search Console"
         />
         <KpiTile
           label="Impression"
           value={integer(agg.imps)}
           delta={calcDelta(agg.imps, aggPrev?.imps)}
+          info="Numero di volte in cui una pagina del sito è apparsa nei risultati Google negli ultimi 30 giorni"
         />
         <KpiTile
           label="CTR medio"
           value={pctStr(agg.ctr, 2)}
           delta={calcDelta(agg.ctr, aggPrev?.ctr)}
-          sub="Σ click ÷ Σ impression"
+          info="Click-Through Rate: Σ click ÷ Σ impression del periodo. NON è la media dei CTR giornalieri"
         />
         <KpiTile
           label="Posizione media"
           value={num(agg.position, 2)}
           delta={invertDeltaColor(calcDelta(agg.position, aggPrev?.position))}
-          sub="Media ponderata sulle impression"
+          info="Posizione media ponderata sulle impression: Σ(posizione × impression) ÷ Σ impression. Più bassa è meglio (1 = prima posizione). Il delta è colorato al contrario: verde = miglioramento (scesa), rosso = peggioramento (salita)"
         />
       </div>
 

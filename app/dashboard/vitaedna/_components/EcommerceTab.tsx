@@ -51,9 +51,12 @@ export function EcommerceTab({ data }: { data: DashboardData }) {
       <SectionTitle sub="WooCommerce · ultimi 30 giorni vs 30 giorni precedenti">Ecommerce</SectionTitle>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
-        <KpiTile label="Revenue" value={eur(woo30?.revenue ?? 0)} delta={calcDelta(woo30?.revenue, wooP30?.revenue)} />
-        <KpiTile label="Ordini" value={integer(woo30?.orders ?? 0)} delta={calcDelta(woo30?.orders, wooP30?.orders)} />
-        <KpiTile label="AOV" value={eur(woo30?.aov ?? 0)} delta={calcDelta(woo30?.aov, wooP30?.aov)} />
+        <KpiTile label="Revenue" value={eur(woo30?.revenue ?? 0)} delta={calcDelta(woo30?.revenue, wooP30?.revenue)}
+          info="Fatturato lordo WooCommerce degli ultimi 30 giorni" />
+        <KpiTile label="Ordini" value={integer(woo30?.orders ?? 0)} delta={calcDelta(woo30?.orders, wooP30?.orders)}
+          info="Numero di ordini WooCommerce completati negli ultimi 30 giorni" />
+        <KpiTile label="AOV" value={eur(woo30?.aov ?? 0)} delta={calcDelta(woo30?.aov, wooP30?.aov)}
+          info="Average Order Value: fatturato ÷ numero ordini" />
       </div>
 
       <Card>
