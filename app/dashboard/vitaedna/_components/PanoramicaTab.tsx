@@ -11,46 +11,124 @@ import {
   calcDelta, eur, eur0, integer, num, pctStr, fmtDate,
   KITS, kitOf, KIT_COLORS, CHART_PALETTE,
   Card, CardHeader, KpiTile, SectionTitle, EmptyState, tableStyles, useTheme,
+  useRange, useNav, RANGE_DAYS, RANGE_LABEL, RangeKey, TabKey,
+  lastNDays,
 } from "./shared";
 
 const ROAS_GOOD = 2.0;
 
 export function PanoramicaTab({ data }: { data: DashboardData }) {
   const { palette } = useTheme();
+  const { range } = useRange();
+  const { setTab } = useNav();
+
+  const rangeDays = RANGE_DAYS[range];
+
+  // KPIs: usa woo.totals[range] dove disponibile, altrimenti compute da daily
+  const wooCur = data.woo?.totals?.[range];
+  const wooPrev = range === "w30" ? data.woo?.totals?.p30 : null;
   const b30 = data.blended?.w30;
   const bP30 = data.blended?.p30;
-  const woo30 = data.woo?.totals?.w30;
-  const wooP30 = data.woo?.totals?.p30;
   const ga430 = data.ga4?.totals?.w30;
   const ga4P30 = data.ga4?.totals?.p30;
 
-  const chartData = useMemo(() => buildDailyChartData(data), [data]);
+  // Sessioni: per range diverso da w30 aggreghiamo da ga4.daily
+  const sessAgg = useMemo(() => aggregateDaily(data.ga4?.daily ?? [], rangeDays, 1), [data.ga4?.daily, rangeDays]);
+
+  // Sparkline series (ultimi 30 giorni per contesto trend)
+  const wooSpark = useMemo(() => lastNDays(data.woo?.daily as (string | number)[][], 30).map((r) => Number(r[1]) || 0), [data.woo?.daily]);
+  const ordersSpark = useMemo(() => lastNDays(data.woo?.daily as (string | number)[][], 30).map((r) => Number(r[2]) || 0), [data.woo?.daily]);
+  const sessSpark = useMemo(() => lastNDays(data.ga4?.daily as (string | number)[][], 30).map((r) => Number(r[1]) || 0), [data.ga4?.daily]);
+  const aovSpark = useMemo(() => lastNDays(data.woo?.daily as (string | number)[][], 30).map((r) => {
+    const rev = Number(r[1]) || 0; const ord = Number(r[2]) || 0;
+    return ord > 0 ? rev / ord : 0;
+  }), [data.woo?.daily]);
+
+  const chartData = useMemo(() => buildDailyChartData(data, rangeDays), [data, rangeDays]);
   const adsRollup = useMemo(() => rollupAdsPlatforms(data, bP30), [data, bP30]);
-  const gscDaily = useMemo(() => buildGscDailyChart(data.gsc?.daily ?? []), [data.gsc?.daily]);
+  const gscDaily = useMemo(() => buildGscDailyChart(data.gsc?.daily ?? [], rangeDays), [data.gsc?.daily, rangeDays]);
+
+  // Alert azioni consigliate (contatori verdetti creatività)
+  const verdicts = useMemo(() => computeVerdictCounts(data), [data]);
+  const hasActions = verdicts.spegni > 0 || verdicts.fatigue > 0 || verdicts.scala > 0;
+
+  const rangeSuffix = range === "w30"
+    ? "vs 30 giorni precedenti"
+    : `finestra ${RANGE_LABEL[range]} · confronto vs periodo precedente parziale`;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <SectionTitle sub="Vista d'insieme · ultimi 30 giorni vs 30 giorni precedenti">Panoramica</SectionTitle>
+      <SectionTitle sub={`Vista d'insieme · ${rangeSuffix}`}>Panoramica</SectionTitle>
+
+      {/* Alert azioni consigliate */}
+      {hasActions && (
+        <ActionsBox
+          scala={verdicts.scala}
+          fatigue={verdicts.fatigue}
+          spegni={verdicts.spegni}
+          onOpenAds={() => setTab("advertising")}
+        />
+      )}
 
       {/* KPI cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
-        <KpiTile label="Fatturato Woo" value={eur0(woo30?.revenue ?? 0)} delta={calcDelta(woo30?.revenue, wooP30?.revenue)}
-          info="Somma dei ricavi lordi WooCommerce negli ultimi 30 giorni" />
-        <KpiTile label="Ordini Woo" value={integer(woo30?.orders ?? 0)} delta={calcDelta(woo30?.orders, wooP30?.orders)}
-          info="Numero di ordini WooCommerce completati negli ultimi 30 giorni" />
-        <KpiTile label="AOV Woo" value={eur(woo30?.aov ?? 0)} delta={calcDelta(woo30?.aov, wooP30?.aov)}
-          info="Valore medio ordine (Average Order Value): fatturato ÷ numero ordini" />
-        <KpiTile label="Spesa adv totale" value={eur0(b30?.spend_total ?? 0)} delta={calcDelta(b30?.spend_total, bP30?.spend_total)}
-          info="Investimento totale advertising negli ultimi 30g: somma di Meta Ads + Google Ads" />
-        <KpiTile label="MER" value={num(b30?.mer ?? 0, 2)} delta={calcDelta(b30?.mer, bP30?.mer)}
-          info="Marketing Efficiency Ratio: Fatturato Woo ÷ Spesa adv totale. Un MER di 2,00 significa 2€ di ricavi per ogni 1€ investito in advertising" />
-        <KpiTile label="Sessioni GA4" value={integer(ga430?.sessions ?? 0)} delta={calcDelta(ga430?.sessions, ga4P30?.sessions)}
-          info="Numero di sessioni registrate da Google Analytics 4 negli ultimi 30 giorni" />
+        <KpiTile
+          label="Fatturato Woo"
+          value={eur0(wooCur?.revenue ?? 0)}
+          delta={wooPrev ? calcDelta(wooCur?.revenue, wooPrev.revenue) : null}
+          info={`Somma dei ricavi lordi WooCommerce negli ultimi ${rangeDays} giorni`}
+          sparkline={wooSpark}
+          sparklineColor="#64CBFF"
+          onClick={() => setTab("ecommerce")}
+        />
+        <KpiTile
+          label="Ordini Woo"
+          value={integer(wooCur?.orders ?? 0)}
+          delta={wooPrev ? calcDelta(wooCur?.orders, wooPrev.orders) : null}
+          info={`Numero di ordini WooCommerce completati negli ultimi ${rangeDays} giorni`}
+          sparkline={ordersSpark}
+          sparklineColor="#96C228"
+          onClick={() => setTab("ecommerce")}
+        />
+        <KpiTile
+          label="AOV Woo"
+          value={eur(wooCur?.aov ?? 0)}
+          delta={wooPrev ? calcDelta(wooCur?.aov, wooPrev.aov) : null}
+          info="Valore medio ordine (Average Order Value): fatturato ÷ numero ordini"
+          sparkline={aovSpark}
+          sparklineColor="#00978F"
+          onClick={() => setTab("ecommerce")}
+        />
+        <KpiTile
+          label="Spesa adv totale"
+          value={eur0(b30?.spend_total ?? 0)}
+          delta={calcDelta(b30?.spend_total, bP30?.spend_total)}
+          info="Investimento totale advertising negli ultimi 30g (dato disponibile solo su finestra 30g): somma di Meta Ads + Google Ads"
+          onClick={() => setTab("advertising")}
+        />
+        <KpiTile
+          label="MER"
+          value={num(b30?.mer ?? 0, 2)}
+          delta={calcDelta(b30?.mer, bP30?.mer)}
+          info="Marketing Efficiency Ratio: Fatturato Woo ÷ Spesa adv totale (finestra 30g). Un MER di 2,00 = 2€ di ricavi per ogni 1€ investito"
+          onClick={() => setTab("advertising")}
+        />
+        <KpiTile
+          label="Sessioni GA4"
+          value={integer(range === "w30" ? (ga430?.sessions ?? 0) : sessAgg.current)}
+          delta={range === "w30"
+            ? calcDelta(ga430?.sessions, ga4P30?.sessions)
+            : calcDelta(sessAgg.current, sessAgg.previous)}
+          info={`Numero di sessioni registrate da Google Analytics 4 negli ultimi ${rangeDays} giorni`}
+          sparkline={sessSpark}
+          sparklineColor="#EB9115"
+          onClick={() => setTab("traffico")}
+        />
       </div>
 
-      {/* Bar chart 90 giorni · Revenue Woo */}
+      {/* Bar chart · Revenue Woo (finestra selezionata) */}
       <Card>
-        <CardHeader title="Andamento fatturato · Ultimi 90 giorni" />
+        <CardHeader title={`Andamento fatturato · Ultimi ${rangeDays} giorni`} />
         {chartData.length === 0 ? (
           <EmptyState label="Nessun dato giornaliero disponibile" />
         ) : (
@@ -130,7 +208,7 @@ export function PanoramicaTab({ data }: { data: DashboardData }) {
 
       {/* Click organici giornalieri (GSC) */}
       <Card>
-        <CardHeader title="Click organici giornalieri · Search Console" />
+        <CardHeader title={`Click organici giornalieri · Search Console · Ultimi ${rangeDays} giorni`} />
         {gscDaily.length === 0 ? (
           <EmptyState label="In attesa dei primi dati Search Console" />
         ) : (
@@ -566,7 +644,7 @@ function TopCountries({ data }: { data: DashboardData }) {
 
 type Row = { date: string; dateLabel: string; revenue: number; sessions: number };
 
-function buildDailyChartData(data: DashboardData): Row[] {
+function buildDailyChartData(data: DashboardData, days = 90): Row[] {
   const wooDaily = data.woo?.daily ?? [];
   const ga4Daily = data.ga4?.daily ?? [];
   const map = new Map<string, Row>();
@@ -585,7 +663,9 @@ function buildDailyChartData(data: DashboardData): Row[] {
     else map.set(date, { date, dateLabel: fmtDate(date), revenue: 0, sessions });
   }
 
-  return Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date));
+  return Array.from(map.values())
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .slice(-days);
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -614,17 +694,126 @@ function labelize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-// Ultimi 90 giorni di click organici da gsc.daily, ordinati asc
-function buildGscDailyChart(daily: (string | number)[][]): { date: string; dateLabel: string; clicks: number }[] {
+// Ultimi N giorni di click organici da gsc.daily, ordinati asc
+function buildGscDailyChart(daily: (string | number)[][], days = 90): { date: string; dateLabel: string; clicks: number }[] {
   if (!daily || daily.length === 0) return [];
   return [...daily]
     .filter((r) => r && r.length >= 2)
     .sort((a, b) => String(a[0]).localeCompare(String(b[0])))
-    .slice(-90)
+    .slice(-days)
     .map((r) => {
       const date = String(r[0] ?? "");
       return { date, dateLabel: fmtDate(date), clicks: Number(r[1]) || 0 };
     });
+}
+
+// Aggrega ultimi N giorni + N giorni precedenti da una serie daily [data, val, ...]
+function aggregateDaily(daily: (string | number)[][], days: number, valueIdx: number): { current: number; previous: number | null } {
+  if (!daily || daily.length === 0) return { current: 0, previous: null };
+  const sorted = [...daily]
+    .filter((r) => r && r.length > valueIdx)
+    .sort((a, b) => String(a[0]).localeCompare(String(b[0])));
+  const end = sorted.length;
+  const currStart = Math.max(0, end - days);
+  const prevEnd = currStart;
+  const prevStart = Math.max(0, prevEnd - days);
+  const curr = sorted.slice(currStart, end);
+  const prev = sorted.slice(prevStart, prevEnd);
+  let cSum = 0, pSum = 0;
+  for (const r of curr) cSum += Number(r[valueIdx]) || 0;
+  if (prev.length === 0) return { current: cSum, previous: null };
+  for (const r of prev) pSum += Number(r[valueIdx]) || 0;
+  return { current: cSum, previous: pSum };
+}
+
+// Verdetti creatività (stessa logica di AdvertisingTab, semplificata per contatori)
+function computeVerdictCounts(data: DashboardData): { scala: number; fatigue: number; spegni: number } {
+  const w30rows = data.meta?.creatives?.w30?.rows ?? [];
+  const w7rows = data.meta?.creatives?.w7?.rows ?? [];
+  const w7Map = new Map<string, (string | number)[]>();
+  for (const r of w7rows) w7Map.set(String(r[0] ?? "").toLowerCase().trim(), r);
+
+  let scala = 0, fatigue = 0, spegni = 0;
+  const MIN_SPEND = 100, ROAS_GOOD_V = 2.0, FREQ_HIGH = 2.6, CTR_DROP = 0.20;
+
+  for (const r30 of w30rows) {
+    if (String(r30[1] ?? "") !== "ACTIVE") continue;
+    const spesa = Number(r30[2]) || 0;
+    const acquisti = Number(r30[10]) || 0;
+    const roas = Number(r30[13]) || 0;
+
+    // SPEGNI
+    if ((spesa >= MIN_SPEND && acquisti === 0) || (roas > 0 && roas < 1)) { spegni++; continue; }
+    // OSSERVA (skip counter)
+    if (spesa < MIN_SPEND) continue;
+
+    if (roas >= ROAS_GOOD_V) {
+      const w7 = w7Map.get(String(r30[0] ?? "").toLowerCase().trim());
+      const freqW7 = w7 ? Number(w7[5]) || 0 : 0;
+      const ctrW7 = w7 ? Number(w7[7]) || 0 : 0;
+      const ctrW30 = Number(r30[7]) || 0;
+
+      if (freqW7 >= FREQ_HIGH) { fatigue++; continue; }
+      if (w7 && ctrW30 > 0 && (ctrW7 / ctrW30) < 1 - CTR_DROP) { fatigue++; continue; }
+      if (w7 && freqW7 < FREQ_HIGH && ctrW7 >= ctrW30) { scala++; continue; }
+    }
+  }
+  return { scala, fatigue, spegni };
+}
+
+// ─── AlertBox ─────────────────────────────────────────────────────
+
+function ActionsBox({
+  scala, fatigue, spegni, onOpenAds,
+}: {
+  scala: number; fatigue: number; spegni: number; onOpenAds: () => void;
+}) {
+  const { palette } = useTheme();
+  const items: { count: number; label: string; color: string }[] = [];
+  if (spegni > 0) items.push({ count: spegni, label: spegni === 1 ? "creatività da spegnere" : "creatività da spegnere", color: "#ef4444" });
+  if (fatigue > 0) items.push({ count: fatigue, label: fatigue === 1 ? "in fatigue in arrivo" : "in fatigue in arrivo", color: "#f59e0b" });
+  if (scala > 0) items.push({ count: scala, label: scala === 1 ? "da scalare" : "da scalare", color: "#22c55e" });
+
+  return (
+    <button
+      onClick={onOpenAds}
+      className="pf-noprint"
+      style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14,
+        padding: "0.9rem 1.15rem", borderRadius: 12,
+        background: palette.cardBg,
+        border: `1px solid ${palette.cardBorder}`,
+        color: palette.text, fontFamily: "inherit", textAlign: "left",
+        cursor: "pointer", width: "100%",
+        boxShadow: palette.cardShadow,
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        <span style={{
+          fontSize: 10, fontWeight: 700, color: palette.textDim,
+          letterSpacing: "0.08em", textTransform: "uppercase",
+        }}>
+          Azioni consigliate
+        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          {items.map((it) => (
+            <span key={it.label} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <span style={{
+                display: "inline-flex", alignItems: "center", justifyContent: "center",
+                minWidth: 22, height: 22, padding: "0 6px", borderRadius: 11,
+                background: it.color, color: "#ffffff",
+                fontSize: 12, fontWeight: 700, fontVariantNumeric: "tabular-nums",
+              }}>{it.count}</span>
+              <span style={{ fontSize: 13, color: palette.text }}>{it.label}</span>
+            </span>
+          ))}
+        </div>
+      </div>
+      <span style={{ fontSize: 13, fontWeight: 600, color: palette.textMuted, whiteSpace: "nowrap" }}>
+        Vai ad Advertising →
+      </span>
+    </button>
+  );
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

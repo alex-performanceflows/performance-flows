@@ -3,27 +3,26 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import {
-  DashboardData, fmtDateTime, Skeleton,
+  CentogiriData, fmtDateTime, Skeleton,
   ThemeProvider, useTheme,
-  RangeContext, RangeKey, RANGE_LABEL, RANGE_LABEL_SHORT,
+  DateRangeProvider, coverageFromData,
   NavContext, TabKey,
-  Palette,
+  ACCENT, Palette,
 } from "./shared";
+import { DateRangePicker } from "./DateRangePicker";
 import { PanoramicaTab } from "./PanoramicaTab";
 import { TrafficoTab } from "./TrafficoTab";
 import { SEOTab } from "./SEOTab";
-import { EcommerceTab } from "./EcommerceTab";
+import { LeadTab } from "./LeadTab";
 import { AdvertisingTab } from "./AdvertisingTab";
 
 const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
   { key: "panoramica", label: "Panoramica", icon: <IconOverview /> },
   { key: "traffico", label: "Traffico", icon: <IconTraffic /> },
   { key: "seo", label: "SEO", icon: <IconSearch /> },
-  { key: "ecommerce", label: "Ecommerce", icon: <IconCart /> },
+  { key: "lead", label: "Contatti", icon: <IconLead /> },
   { key: "advertising", label: "Advertising", icon: <IconAds /> },
 ];
-
-const RANGE_KEY_LS = "pf.vitaedna.range";
 
 export function Dashboard() {
   return (
@@ -35,54 +34,43 @@ export function Dashboard() {
 
 function DashboardInner() {
   const { theme, palette, toggle } = useTheme();
-  const [data, setData] = useState<DashboardData | null>(null);
+  const [data, setData] = useState<CentogiriData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<TabKey>("panoramica");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const [range, setRangeState] = useState<RangeKey>("w30");
-
-  // Range: hydrate da localStorage
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(RANGE_KEY_LS);
-      if (stored === "w7" || stored === "w30" || stored === "w90") setRangeState(stored);
-    } catch {}
-  }, []);
-
-  const setRange = useCallback((r: RangeKey) => {
-    setRangeState(r);
-    try { localStorage.setItem(RANGE_KEY_LS, r); } catch {}
-  }, []);
-
-  const rangeCtx = useMemo(() => ({ range, setRange }), [range, setRange]);
-  const navCtx = useMemo(() => ({ setTab }), []);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/vitaedna", { cache: "no-store" });
+      const res = await fetch("/api/centogiri", { cache: "no-store" });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
-      setData(json as DashboardData);
+      setData(json as CentogiriData);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Errore sconosciuto");
       setData(null);
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
-  const activeLabel = TABS.find((t) => t.key === tab)?.label ?? "";
+  const coverage = useMemo(() => coverageFromData(data), [data]);
+  const today = useMemo(() => {
+    // Usa il max del coverage come "oggi" per allineare i preset ai dati reali
+    if (coverage?.max) return coverage.max;
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }, [coverage]);
+
+  const navCtx = useMemo(() => ({ setTab }), []);
   const isDark = theme === "dark";
-  const logoFilter = isDark ? "brightness(0) invert(1)" : "none";
+  const activeLabel = TABS.find((t) => t.key === tab)?.label ?? "";
 
   return (
-    <RangeContext.Provider value={rangeCtx}>
     <NavContext.Provider value={navCtx}>
+    <DateRangeProvider today={today} coverage={coverage}>
     <div data-theme={theme} style={{
       minHeight: "100dvh",
       background: palette.shellBg,
@@ -97,17 +85,18 @@ function DashboardInner() {
           backdropFilter: "blur(18px)",
           WebkitBackdropFilter: "blur(18px)",
         }}>
-          {/* Logo */}
+          {/* Brand */}
           <div style={{ padding: "1.5rem 1.25rem 1.75rem" }}>
             <Image
-              src="/images/logo-vitaedna.svg"
-              alt="VitaeDNA"
-              width={238}
-              height={57}
+              src={isDark ? "/images/logo-centogiri-white.png" : "/images/logo-centogiri-dark.png"}
+              alt="Centogiri"
+              width={300}
+              height={isDark ? 150 : 229}
               priority
               style={{
-                height: 38, width: "auto", display: "block",
-                filter: logoFilter,
+                height: isDark ? 42 : 56,
+                width: "auto",
+                display: "block",
               }}
             />
             <p style={{
@@ -120,62 +109,20 @@ function DashboardInner() {
             </p>
           </div>
 
-          {/* Tab list */}
-          <nav style={{
-            padding: "0 0.75rem",
-            display: "flex", flexDirection: "column", gap: 2,
-            flex: 1,
-          }}>
+          {/* Nav */}
+          <nav style={{ padding: "0 0.75rem", display: "flex", flexDirection: "column", gap: 2, flex: 1 }}>
             {TABS.map((t) => (
               <SidebarLink
                 key={t.key}
                 active={tab === t.key}
-                icon={t.icon}
-                label={t.label}
+                icon={t.icon} label={t.label}
                 onClick={() => { setTab(t.key); setMobileNavOpen(false); }}
               />
             ))}
           </nav>
 
-          {/* Range selector */}
-          <div style={{ padding: "0.75rem 1rem 0", borderTop: `1px solid ${palette.divider}` }}>
-            <p style={{
-              margin: "0 0 6px", fontSize: 9, fontWeight: 700, color: palette.textDim,
-              letterSpacing: "0.1em", textTransform: "uppercase",
-            }}>
-              Finestra dati
-            </p>
-            <div style={{
-              display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4,
-              background: palette.input,
-              border: `1px solid ${palette.inputBorder}`,
-              borderRadius: 8, padding: 3,
-            }}>
-              {(["w7", "w30", "w90"] as RangeKey[]).map((r) => (
-                <button
-                  key={r}
-                  onClick={() => setRange(r)}
-                  title={RANGE_LABEL[r]}
-                  style={{
-                    padding: "0.35rem 0", borderRadius: 6, border: "none",
-                    background: range === r ? palette.cardBg : "transparent",
-                    color: range === r ? palette.text : palette.textDim,
-                    fontSize: 11, fontWeight: range === r ? 700 : 500,
-                    cursor: "pointer", fontFamily: "inherit",
-                    transition: "all 0.15s",
-                  }}
-                >
-                  {RANGE_LABEL_SHORT[r]}
-                </button>
-              ))}
-            </div>
-          </div>
-
           {/* Footer */}
-          <div style={{
-            padding: "0.85rem 1.25rem 1.25rem",
-            fontSize: 11,
-          }}>
+          <div style={{ padding: "0.85rem 1.25rem 1.25rem" }}>
             <div style={{
               display: "flex", alignItems: "center", justifyContent: "space-between",
               gap: 8, marginBottom: 6,
@@ -187,29 +134,14 @@ function DashboardInner() {
                 Aggiornato
               </span>
               <div style={{ display: "flex", gap: 6 }}>
-                <button
-                  onClick={toggle}
-                  aria-label={isDark ? "Passa al tema chiaro" : "Passa al tema scuro"}
-                  title={isDark ? "Passa al tema chiaro" : "Passa al tema scuro"}
-                  style={iconBtn(palette)}
-                >
+                <button onClick={toggle} title={isDark ? "Tema chiaro" : "Tema scuro"} style={iconBtn(palette)}>
                   {isDark ? <IconSun /> : <IconMoon />}
                 </button>
-                <button
-                  onClick={() => window.print()}
-                  aria-label="Stampa / Esporta PDF"
-                  title="Stampa / Esporta PDF"
-                  style={iconBtn(palette)}
-                >
+                <button onClick={() => window.print()} title="Stampa" style={iconBtn(palette)}>
                   <IconPrint />
                 </button>
-                <button
-                  onClick={load}
-                  disabled={loading}
-                  aria-label="Aggiorna dati"
-                  title="Aggiorna dati"
-                  style={{ ...iconBtn(palette), cursor: loading ? "wait" : "pointer", opacity: loading ? 0.5 : 1 }}
-                >
+                <button onClick={load} disabled={loading} title="Aggiorna dati"
+                  style={{ ...iconBtn(palette), cursor: loading ? "wait" : "pointer", opacity: loading ? 0.5 : 1 }}>
                   <IconRefresh />
                 </button>
               </div>
@@ -217,9 +149,7 @@ function DashboardInner() {
             <div style={{ color: palette.textMuted, fontSize: 11, lineHeight: 1.4 }}>
               {loading && !data ? (
                 <Skeleton width={120} height={11} />
-              ) : data?.updated_at ? (
-                fmtDateTime(data.updated_at)
-              ) : "—"}
+              ) : data?.updated_at ? fmtDateTime(data.updated_at) : "—"}
             </div>
             <p style={{ margin: "0.9rem 0 0", fontSize: 10, color: palette.textFaint }}>
               Performance Flows
@@ -227,11 +157,10 @@ function DashboardInner() {
           </div>
         </aside>
 
-        {/* Mobile top bar */}
+        {/* Mobile bar */}
         <div className="pf-mobile-bar" style={{
           background: palette.sidebarBg,
-          backdropFilter: "blur(18px)",
-          WebkitBackdropFilter: "blur(18px)",
+          backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)",
           borderBottom: `1px solid ${palette.divider}`,
           padding: "0.8rem 1rem",
           display: "none",
@@ -240,11 +169,15 @@ function DashboardInner() {
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <Image
-              src="/images/logo-vitaedna.svg"
-              alt="VitaeDNA"
-              width={238}
-              height={57}
-              style={{ height: 28, width: "auto", filter: logoFilter }}
+              src={isDark ? "/images/logo-centogiri-white.png" : "/images/logo-centogiri-dark.png"}
+              alt="Centogiri"
+              width={300}
+              height={isDark ? 150 : 229}
+              style={{
+                height: isDark ? 26 : 34,
+                width: "auto",
+                display: "block",
+              }}
             />
             <span style={{
               fontSize: 12, color: palette.textDim,
@@ -254,33 +187,11 @@ function DashboardInner() {
             </span>
           </div>
           <div style={{ display: "flex", gap: 6 }}>
-            <button
-              onClick={toggle}
-              aria-label={isDark ? "Passa al tema chiaro" : "Passa al tema scuro"}
-              style={{
-                width: 34, height: 34, borderRadius: 8,
-                border: `1px solid ${palette.inputBorder}`,
-                background: palette.input,
-                color: palette.text, cursor: "pointer",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                padding: 0,
-              }}
-            >
+            <button onClick={toggle} title="Tema" style={iconBtn(palette)}>
               {isDark ? <IconSun /> : <IconMoon />}
             </button>
-            <button
-              onClick={() => setMobileNavOpen((v) => !v)}
-              aria-label="Menu"
-              style={{
-                width: 34, height: 34, borderRadius: 8,
-                border: `1px solid ${palette.inputBorder}`,
-                background: palette.input,
-                color: palette.text, cursor: "pointer",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                padding: 0,
-              }}
-            >
-              <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <button onClick={() => setMobileNavOpen((v) => !v)} title="Menu" style={iconBtn(palette)}>
+              <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 {mobileNavOpen ? (
                   <><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></>
                 ) : (
@@ -291,14 +202,12 @@ function DashboardInner() {
           </div>
         </div>
 
-        {/* Mobile menu overlay */}
         {mobileNavOpen && (
           <div
             className="pf-mobile-menu"
             style={{
               display: "none",
               background: palette.sidebarBg,
-              backdropFilter: "blur(20px)",
               borderBottom: `1px solid ${palette.divider}`,
               padding: "0.75rem",
               position: "sticky", top: 62, zIndex: 39,
@@ -307,10 +216,7 @@ function DashboardInner() {
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               {TABS.map((t) => (
                 <SidebarLink
-                  key={t.key}
-                  active={tab === t.key}
-                  icon={t.icon}
-                  label={t.label}
+                  key={t.key} active={tab === t.key} icon={t.icon} label={t.label}
                   onClick={() => { setTab(t.key); setMobileNavOpen(false); }}
                 />
               ))}
@@ -318,15 +224,25 @@ function DashboardInner() {
           </div>
         )}
 
-        {/* Main content */}
+        {/* Main */}
         <main className="pf-main">
+          {/* Global date range picker */}
+          <div
+            className="pf-noprint"
+            style={{
+              display: "flex", justifyContent: "flex-end", marginBottom: 18,
+              flexWrap: "wrap", gap: 10,
+            }}
+          >
+            <DateRangePicker />
+          </div>
+
           {error && (
             <div style={{
               background: "rgba(239,68,68,0.10)",
               border: "1px solid rgba(239,68,68,0.35)",
               color: isDark ? "#fecaca" : "#991b1b",
-              padding: "1rem 1.25rem", borderRadius: 12,
-              marginBottom: 20,
+              padding: "1rem 1.25rem", borderRadius: 12, marginBottom: 20,
               display: "flex", alignItems: "center", justifyContent: "space-between",
               gap: 16, flexWrap: "wrap",
             }}>
@@ -334,17 +250,13 @@ function DashboardInner() {
                 <strong style={{ color: isDark ? "#f87171" : "#b91c1c" }}>Errore nel caricamento dei dati:</strong>{" "}
                 <span style={{ fontSize: 13 }}>{error}</span>
               </div>
-              <button
-                onClick={load}
-                style={{
-                  padding: "0.5rem 1rem", borderRadius: 8,
-                  border: "1px solid rgba(239,68,68,0.4)",
-                  background: "rgba(239,68,68,0.15)",
-                  color: isDark ? "#ffffff" : "#7f1d1d",
-                  fontSize: 13, fontWeight: 600, cursor: "pointer",
-                  fontFamily: "inherit",
-                }}
-              >
+              <button onClick={load} style={{
+                padding: "0.5rem 1rem", borderRadius: 8,
+                border: "1px solid rgba(239,68,68,0.4)",
+                background: "rgba(239,68,68,0.15)",
+                color: isDark ? "#ffffff" : "#7f1d1d",
+                fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
+              }}>
                 Riprova
               </button>
             </div>
@@ -357,7 +269,7 @@ function DashboardInner() {
               {tab === "panoramica" && <PanoramicaTab data={data} />}
               {tab === "traffico" && <TrafficoTab data={data} />}
               {tab === "seo" && <SEOTab data={data} />}
-              {tab === "ecommerce" && <EcommerceTab data={data} />}
+              {tab === "lead" && <LeadTab data={data} />}
               {tab === "advertising" && <AdvertisingTab data={data} />}
             </>
           )}
@@ -382,62 +294,53 @@ function DashboardInner() {
           margin: 0 auto;
         }
         .pf-sidebar {
-          position: sticky;
-          top: 0;
-          height: 100dvh;
-          display: flex;
-          flex-direction: column;
-          overflow-y: auto;
+          position: sticky; top: 0; height: 100dvh;
+          display: flex; flex-direction: column; overflow-y: auto;
         }
         .pf-main {
           padding: 1.75rem 2rem 3rem;
           min-width: 0;
         }
-
         @media (max-width: 900px) {
-          .pf-shell {
-            display: block;
+          .pf-shell { display: block; }
+          .pf-sidebar { display: none; }
+          .pf-mobile-bar { display: flex !important; }
+          .pf-mobile-menu { display: block !important; }
+          .pf-main { padding: 1rem; }
+        }
+        @media (max-width: 640px) {
+          .pf-daterange-popover {
+            grid-template-columns: 1fr !important;
           }
-          .pf-sidebar {
-            display: none;
-          }
-          .pf-mobile-bar {
-            display: flex !important;
-          }
-          .pf-mobile-menu {
-            display: block !important;
-          }
-          .pf-main {
-            padding: 1rem;
+          .pf-daterange-popover > div:first-child > div {
+            display: grid !important;
+            grid-template-columns: repeat(2, 1fr) !important;
           }
         }
-
+        @media (max-width: 480px) {
+          .pf-main {
+            padding: 0.75rem !important;
+          }
+        }
         @media print {
           .pf-noprint { display: none !important; }
           .pf-sidebar { display: none !important; }
           .pf-shell { display: block !important; grid-template-columns: 1fr !important; }
           .pf-main { padding: 0.5rem !important; }
           html, body { background: #ffffff !important; color: #0f172a !important; }
-          * {
-            background: transparent !important;
-            color: #0f172a !important;
-            box-shadow: none !important;
-          }
-          .pf-print-page-break { page-break-after: always; }
+          * { background: transparent !important; color: #0f172a !important; box-shadow: none !important; }
           @page { size: A4; margin: 12mm; }
         }
       `}</style>
     </div>
+    </DateRangeProvider>
     </NavContext.Provider>
-    </RangeContext.Provider>
   );
 }
 
 // ─── Sidebar link ─────────────────────────────────────────────────
 
-function SidebarLink({
-  active, icon, label, onClick,
-}: {
+function SidebarLink({ active, icon, label, onClick }: {
   active: boolean; icon: React.ReactNode; label: string; onClick: () => void;
 }) {
   const { palette } = useTheme();
@@ -446,16 +349,12 @@ function SidebarLink({
       onClick={onClick}
       style={{
         display: "flex", alignItems: "center", gap: 12,
-        padding: "0.7rem 0.85rem",
-        borderRadius: 9,
-        border: "none",
+        padding: "0.7rem 0.85rem", borderRadius: 9, border: "none",
         background: active ? palette.buttonHover : "transparent",
         color: active ? palette.text : palette.textMuted,
         fontSize: 13, fontWeight: active ? 600 : 500,
         cursor: "pointer", fontFamily: "inherit", textAlign: "left",
-        letterSpacing: "-0.01em",
-        transition: "all 0.15s",
-        position: "relative",
+        letterSpacing: "-0.01em", transition: "all 0.15s", position: "relative",
       }}
     >
       {active && (
@@ -463,15 +362,13 @@ function SidebarLink({
           position: "absolute", left: -12, top: "50%",
           transform: "translateY(-50%)",
           width: 3, height: 20, borderRadius: 2,
-          background: "linear-gradient(180deg, #64CBFF 0%, #96C228 100%)",
+          background: `linear-gradient(180deg, ${ACCENT} 0%, #ea580c 100%)`,
         }} />
       )}
       <span style={{
         display: "inline-flex", alignItems: "center", justifyContent: "center",
-        color: active ? "#64CBFF" : palette.textDim,
-      }}>
-        {icon}
-      </span>
+        color: active ? ACCENT : palette.textDim,
+      }}>{icon}</span>
       <span>{label}</span>
     </button>
   );
@@ -482,25 +379,22 @@ function SidebarLink({
 function IconOverview() { return <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1" /><rect x="14" y="3" width="7" height="5" rx="1" /><rect x="14" y="12" width="7" height="9" rx="1" /><rect x="3" y="16" width="7" height="5" rx="1" /></svg>; }
 function IconTraffic() { return <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" /></svg>; }
 function IconSearch() { return <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>; }
-function IconCart() { return <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" /><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6" /></svg>; }
+function IconLead() { return <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 11-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>; }
 function IconAds() { return <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M3 11l18-5v12L3 14v-3z" /><path d="M11.6 16.8a3 3 0 11-5.8-1.6" /></svg>; }
 function IconRefresh() { return <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" /><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" /></svg>; }
+function IconSun() { return <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" /></svg>; }
+function IconMoon() { return <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" /></svg>; }
 function IconPrint() { return <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9" /><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2" /><rect x="6" y="14" width="12" height="8" /></svg>; }
 
 function iconBtn(palette: Palette): React.CSSProperties {
   return {
     width: 26, height: 26, borderRadius: 6,
     border: `1px solid ${palette.inputBorder}`,
-    background: palette.input,
-    color: palette.textMuted,
-    cursor: "pointer",
-    display: "flex", alignItems: "center", justifyContent: "center",
-    padding: 0,
-    fontFamily: "inherit",
+    background: palette.input, color: palette.textMuted,
+    cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+    padding: 0, fontFamily: "inherit",
   };
 }
-function IconSun() { return <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" /></svg>; }
-function IconMoon() { return <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" /></svg>; }
 
 function SkeletonPage() {
   return (
@@ -518,7 +412,6 @@ function SkeletonPage() {
         ))}
       </div>
       <Skeleton height={320} style={{ borderRadius: 14 }} />
-      <Skeleton height={220} style={{ borderRadius: 14 }} />
     </div>
   );
 }

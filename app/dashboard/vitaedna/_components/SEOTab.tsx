@@ -9,13 +9,14 @@ import {
   DashboardData, calcDelta, invertDeltaColor,
   integer, num, pctStr, fmtDate,
   Card, CardHeader, KpiTile, SectionTitle, EmptyState, tableStyles, useTheme,
+  useRange, RANGE_DAYS as RANGE_MAP, RANGE_LABEL,
 } from "./shared";
-
-// Numero di giorni per finestra corrente (e comparazione)
-const RANGE_DAYS = 30;
 
 export function SEOTab({ data }: { data: DashboardData }) {
   const { palette } = useTheme();
+  const { range } = useRange();
+  const RANGE_DAYS = RANGE_MAP[range];
+  const rangeLabel = RANGE_LABEL[range];
   const gsc = data.gsc;
   const daily = gsc?.daily ?? [];
   const queries = gsc?.queries_w30 ?? [];
@@ -68,7 +69,7 @@ export function SEOTab({ data }: { data: DashboardData }) {
           )}
         </div>
         <p style={{ margin: "3px 0 0", fontSize: 12, color: palette.textDim }}>
-          Ultimi {RANGE_DAYS} giorni vs {RANGE_DAYS} giorni precedenti
+          {rangeLabel} vs periodo precedente
         </p>
       </div>
 
@@ -82,13 +83,13 @@ export function SEOTab({ data }: { data: DashboardData }) {
           label="Click organici"
           value={integer(agg.clicks)}
           delta={calcDelta(agg.clicks, aggPrev?.clicks)}
-          info="Numero di click da risultati organici Google negli ultimi 30 giorni disponibili in Search Console"
+          info={`Numero di click da risultati organici Google negli ultimi ${RANGE_DAYS} giorni disponibili in Search Console`}
         />
         <KpiTile
           label="Impression"
           value={integer(agg.imps)}
           delta={calcDelta(agg.imps, aggPrev?.imps)}
-          info="Numero di volte in cui una pagina del sito è apparsa nei risultati Google negli ultimi 30 giorni"
+          info={`Numero di volte in cui una pagina del sito è apparsa nei risultati Google negli ultimi ${RANGE_DAYS} giorni`}
         />
         <KpiTile
           label="CTR medio"
@@ -106,7 +107,7 @@ export function SEOTab({ data }: { data: DashboardData }) {
 
       {/* Chart click + impression con comparazione tratteggiata */}
       <Card>
-        <CardHeader title={`Click e impression · Ultimi ${RANGE_DAYS} giorni`} />
+        <CardHeader title={`Click e impression · ${rangeLabel}`} />
         {chartData.length === 0 ? (
           <EmptyState label="Nessun dato disponibile per il grafico" />
         ) : (

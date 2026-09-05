@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type React from "react";
 
 // ─── Types ────────────────────────────────────────────────────────
@@ -325,67 +325,102 @@ export function CardHeader({ title, right }: { title: string; right?: React.Reac
 }
 
 export function KpiTile({
-  label, value, delta, accent, sub, info,
+  label, value, delta, accent, sub, info, sparkline, sparklineColor, onClick,
 }: {
   label: string;
   value: string;
   delta?: DeltaInfo | null;
   accent?: string;
   sub?: string;
-  info?: string;      // testo esplicativo mostrato su hover dell'icona (i)
+  info?: string;                    // testo esplicativo mostrato hovering l'icona (i)
+  sparkline?: number[];             // serie di valori giornalieri (mini chart in fondo)
+  sparklineColor?: string;
+  onClick?: () => void;             // click-through a un'altra tab
 }) {
   const { palette } = useTheme();
+  const clickable = !!onClick;
+
   return (
-    <Card padding={18} style={{ position: "relative" }}>
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 6 }}>
-        <p style={{
-          margin: 0, fontSize: 10, fontWeight: 700,
-          color: palette.textDim,
-          letterSpacing: "0.08em", textTransform: "uppercase",
-        }}>{label}</p>
-        {info && (
-          <span
-            role="img"
-            aria-label={`Info: ${info}`}
-            title={info}
-            style={{
-              flexShrink: 0,
-              width: 16, height: 16, borderRadius: "50%",
-              border: `1px solid ${palette.cardBorder}`,
-              background: palette.buttonHover,
-              color: palette.textDim,
-              display: "inline-flex", alignItems: "center", justifyContent: "center",
-              fontSize: 10, fontWeight: 700, fontFamily: "'Times New Roman', serif",
-              fontStyle: "italic", lineHeight: 1,
-              cursor: "help",
-            }}
-          >
-            i
-          </span>
-        )}
-      </div>
-      <p style={{
-        margin: "0.4rem 0 0",
-        fontSize: 22, fontWeight: 700, letterSpacing: "-0.02em",
-        color: accent ?? palette.text,
-        fontVariantNumeric: "tabular-nums",
-      }}>{value}</p>
-      {(delta || sub) && (
-        <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          {delta && (
-            <span style={{
-              fontSize: 12, fontWeight: 600, color: delta.color,
-              display: "inline-flex", alignItems: "center", gap: 3,
-            }}>
-              <span aria-hidden style={{ fontSize: 10 }}>{delta.arrow}</span>
-              {delta.label}
-            </span>
-          )}
-          {sub && (
-            <span style={{ fontSize: 11, color: palette.textDim }}>{sub}</span>
+    <Card
+      padding={18}
+      style={{
+        position: "relative",
+        cursor: clickable ? "pointer" : "default",
+        transition: "transform 0.15s, box-shadow 0.15s, border-color 0.15s",
+      }}
+    >
+      <div
+        onClick={onClick}
+        onKeyDown={(e) => {
+          if (!onClick) return;
+          if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); }
+        }}
+        role={clickable ? "button" : undefined}
+        tabIndex={clickable ? 0 : undefined}
+        style={{
+          outline: "none",
+          margin: -18, padding: 18,
+          borderRadius: 14,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 6 }}>
+          <p style={{
+            margin: 0, fontSize: 10, fontWeight: 700,
+            color: palette.textDim,
+            letterSpacing: "0.08em", textTransform: "uppercase",
+          }}>{label}</p>
+          {info && (
+            <InfoTooltip text={info}>
+              <span
+                aria-label={`Info: ${label}`}
+                style={{
+                  flexShrink: 0,
+                  width: 16, height: 16, borderRadius: "50%",
+                  border: `1px solid ${palette.cardBorder}`,
+                  background: palette.buttonHover,
+                  color: palette.textDim,
+                  display: "inline-flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 10, fontWeight: 700, fontFamily: "'Times New Roman', serif",
+                  fontStyle: "italic", lineHeight: 1,
+                  cursor: "help",
+                }}
+              >
+                i
+              </span>
+            </InfoTooltip>
           )}
         </div>
-      )}
+        <p style={{
+          margin: "0.4rem 0 0",
+          fontSize: 22, fontWeight: 700, letterSpacing: "-0.02em",
+          color: accent ?? palette.text,
+          fontVariantNumeric: "tabular-nums",
+        }}>{value}</p>
+        {(delta || sub) && (
+          <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            {delta && (
+              <span style={{
+                fontSize: 12, fontWeight: 600, color: delta.color,
+                display: "inline-flex", alignItems: "center", gap: 3,
+              }}>
+                <span aria-hidden style={{ fontSize: 10 }}>{delta.arrow}</span>
+                {delta.label}
+              </span>
+            )}
+            {sub && (
+              <span style={{ fontSize: 11, color: palette.textDim }}>{sub}</span>
+            )}
+          </div>
+        )}
+        {sparkline && sparkline.length >= 2 && (
+          <Sparkline
+            values={sparkline}
+            color={sparklineColor ?? accent ?? "#64CBFF"}
+            height={28}
+            ariaLabel={`Trend giornaliero ${label}`}
+          />
+        )}
+      </div>
     </Card>
   );
 }
@@ -455,6 +490,172 @@ export function Skeleton({ width = "100%", height = 16, style }: { width?: strin
       ...style,
     }} />
   );
+}
+
+// ─── Range selector (globale) ─────────────────────────────────────
+
+export type RangeKey = "w7" | "w30" | "w90";
+export const RANGE_DAYS: Record<RangeKey, number> = { w7: 7, w30: 30, w90: 90 };
+export const RANGE_LABEL: Record<RangeKey, string> = { w7: "7 giorni", w30: "30 giorni", w90: "90 giorni" };
+export const RANGE_LABEL_SHORT: Record<RangeKey, string> = { w7: "7g", w30: "30g", w90: "90g" };
+
+export const RangeContext = createContext<{ range: RangeKey; setRange: (r: RangeKey) => void }>({
+  range: "w30",
+  setRange: () => {},
+});
+
+export function useRange() { return useContext(RangeContext); }
+
+// Aggrega ultimi N giorni + N giorni precedenti da una serie daily [data, ...values]
+// valueGetter mappa una riga in un valore numerico (es. click, revenue, sessioni)
+export function aggregateWindow(
+  daily: (string | number)[][],
+  days: number,
+  valueGetter: (r: (string | number)[]) => number
+): { current: number; previous: number | null } {
+  if (!daily || daily.length === 0) return { current: 0, previous: null };
+  const sorted = [...daily]
+    .filter((r) => r && r.length >= 2)
+    .sort((a, b) => String(a[0]).localeCompare(String(b[0])));
+  const end = sorted.length;
+  const currStart = Math.max(0, end - days);
+  const prevEnd = currStart;
+  const prevStart = Math.max(0, prevEnd - days);
+  const curr = sorted.slice(currStart, end);
+  const prev = sorted.slice(prevStart, prevEnd);
+  let currSum = 0;
+  for (const r of curr) currSum += valueGetter(r);
+  if (prev.length === 0) return { current: currSum, previous: null };
+  let prevSum = 0;
+  for (const r of prev) prevSum += valueGetter(r);
+  return { current: currSum, previous: prevSum };
+}
+
+// Ultimi N giorni da una serie, in ordine ascendente
+export function lastNDays<T extends (string | number)[]>(daily: T[] | undefined, days: number): T[] {
+  if (!daily || daily.length === 0) return [];
+  const sorted = [...daily].sort((a, b) => String(a[0]).localeCompare(String(b[0])));
+  return sorted.slice(-days);
+}
+
+// ─── Nav (tab switch) ─────────────────────────────────────────────
+
+export type TabKey = "panoramica" | "traffico" | "seo" | "ecommerce" | "advertising";
+
+export const NavContext = createContext<{ setTab: (t: TabKey) => void }>({
+  setTab: () => {},
+});
+
+export function useNav() { return useContext(NavContext); }
+
+// ─── Custom Tooltip ───────────────────────────────────────────────
+
+export function InfoTooltip({ text, children, maxWidth = 260 }: {
+  text: string;
+  children: React.ReactNode;
+  maxWidth?: number;
+}) {
+  const { palette } = useTheme();
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLSpanElement>(null);
+  const [placement, setPlacement] = useState<"below" | "above">("below");
+
+  useEffect(() => {
+    if (!open || !wrapRef.current) return;
+    const rect = wrapRef.current.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    setPlacement(spaceBelow < 120 ? "above" : "below");
+  }, [open]);
+
+  return (
+    <span
+      ref={wrapRef}
+      style={{ position: "relative", display: "inline-flex", lineHeight: 0 }}
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+      onFocus={() => setOpen(true)}
+      onBlur={() => setOpen(false)}
+    >
+      {children}
+      {open && (
+        <span
+          role="tooltip"
+          style={{
+            position: "absolute",
+            [placement === "below" ? "top" : "bottom"]: "calc(100% + 6px)",
+            right: 0,
+            zIndex: 60,
+            width: "max-content",
+            maxWidth,
+            padding: "0.55rem 0.7rem",
+            background: palette.tooltipBg,
+            border: `1px solid ${palette.tooltipBorder}`,
+            borderRadius: 8,
+            fontSize: 12, lineHeight: 1.45,
+            color: palette.text,
+            textAlign: "left",
+            fontFamily: "Inter, sans-serif",
+            fontWeight: 400,
+            textTransform: "none",
+            letterSpacing: "normal",
+            boxShadow: "0 6px 24px rgba(0,0,0,0.18)",
+            pointerEvents: "none",
+            whiteSpace: "normal",
+          }}
+        >
+          {text}
+        </span>
+      )}
+    </span>
+  );
+}
+
+// ─── Sparkline ────────────────────────────────────────────────────
+
+export function Sparkline({
+  values, color = "#64CBFF", height = 32, ariaLabel,
+}: {
+  values: number[]; color?: string; height?: number; ariaLabel?: string;
+}) {
+  if (!values || values.length < 2) return null;
+  const max = Math.max(...values);
+  const min = Math.min(...values);
+  const range = max - min || 1;
+  const w = 120;
+  const h = height;
+  const step = w / (values.length - 1);
+  const points = values.map((v, i) => `${(i * step).toFixed(2)},${(h - ((v - min) / range) * h).toFixed(2)}`).join(" ");
+  // Area path for gradient fill
+  const areaD = `M0,${h} L ${points.replace(/,/g, ",").split(" ").join(" L ")} L ${w},${h} Z`;
+  const gradId = `sparkGrad-${Math.abs(hashString(color + values.length))}`;
+  return (
+    <svg
+      role="img"
+      aria-label={ariaLabel}
+      viewBox={`0 0 ${w} ${h}`}
+      preserveAspectRatio="none"
+      style={{ display: "block", width: "100%", height, marginTop: 6 }}
+    >
+      <defs>
+        <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.35" />
+          <stop offset="100%" stopColor={color} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={areaD} fill={`url(#${gradId})`} />
+      <polyline
+        points={points}
+        fill="none" stroke={color} strokeWidth={1.5}
+        strokeLinecap="round" strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function hashString(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+  return h;
 }
 
 // Table styles come funzione (dipendono dal tema)

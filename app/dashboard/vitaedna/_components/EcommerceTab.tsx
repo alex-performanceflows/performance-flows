@@ -9,13 +9,16 @@ import {
   DashboardData, calcDelta, eur, eur0, integer, fmtDate,
   KITS, kitOf, KIT_COLORS,
   Card, CardHeader, KpiTile, SectionTitle, EmptyState, tableStyles, useTheme,
+  useRange, RANGE_DAYS, RANGE_LABEL,
 } from "./shared";
 
 export function EcommerceTab({ data }: { data: DashboardData }) {
   const { palette } = useTheme();
+  const { range } = useRange();
   const ts = tableStyles(palette);
-  const woo30 = data.woo?.totals?.w30;
-  const wooP30 = data.woo?.totals?.p30;
+  const rangeDays = RANGE_DAYS[range];
+  const wooCur = data.woo?.totals?.[range];
+  const wooPrev = range === "w30" ? data.woo?.totals?.p30 : null;
 
   const kitRevenue = useMemo(() => {
     const acc: Record<string, { key: string; label: string; color: string; revenue: number; qty: number }> = {};
@@ -41,21 +44,22 @@ export function EcommerceTab({ data }: { data: DashboardData }) {
         revenue: Number(r[1]) || 0,
         ordini: Number(r[2]) || 0,
       }))
-      .sort((a, b) => a.date.localeCompare(b.date));
-  }, [data.woo?.daily]);
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .slice(-rangeDays);
+  }, [data.woo?.daily, rangeDays]);
 
   const coupons = data.woo?.coupons ?? [];
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <SectionTitle sub="WooCommerce · ultimi 30 giorni vs 30 giorni precedenti">Ecommerce</SectionTitle>
+      <SectionTitle sub={`WooCommerce · ${RANGE_LABEL[range]}${range === "w30" ? " vs 30 giorni precedenti" : ""}`}>Ecommerce</SectionTitle>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
-        <KpiTile label="Revenue" value={eur(woo30?.revenue ?? 0)} delta={calcDelta(woo30?.revenue, wooP30?.revenue)}
-          info="Fatturato lordo WooCommerce degli ultimi 30 giorni" />
-        <KpiTile label="Ordini" value={integer(woo30?.orders ?? 0)} delta={calcDelta(woo30?.orders, wooP30?.orders)}
-          info="Numero di ordini WooCommerce completati negli ultimi 30 giorni" />
-        <KpiTile label="AOV" value={eur(woo30?.aov ?? 0)} delta={calcDelta(woo30?.aov, wooP30?.aov)}
+        <KpiTile label="Revenue" value={eur(wooCur?.revenue ?? 0)} delta={wooPrev ? calcDelta(wooCur?.revenue, wooPrev.revenue) : null}
+          info={`Fatturato lordo WooCommerce degli ultimi ${rangeDays} giorni`} />
+        <KpiTile label="Ordini" value={integer(wooCur?.orders ?? 0)} delta={wooPrev ? calcDelta(wooCur?.orders, wooPrev.orders) : null}
+          info={`Numero di ordini WooCommerce completati negli ultimi ${rangeDays} giorni`} />
+        <KpiTile label="AOV" value={eur(wooCur?.aov ?? 0)} delta={wooPrev ? calcDelta(wooCur?.aov, wooPrev.aov) : null}
           info="Average Order Value: fatturato ÷ numero ordini" />
       </div>
 
@@ -125,7 +129,7 @@ export function EcommerceTab({ data }: { data: DashboardData }) {
       </Card>
 
       <Card>
-        <CardHeader title="Andamento giornaliero · Revenue e Ordini" />
+        <CardHeader title={`Andamento giornaliero · Revenue e Ordini · Ultimi ${rangeDays} giorni`} />
         {dailyChart.length === 0 ? <EmptyState label="Nessun dato giornaliero" /> : (
           <div style={{ width: "100%", height: 280 }}>
             <ResponsiveContainer>

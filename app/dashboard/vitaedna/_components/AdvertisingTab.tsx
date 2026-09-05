@@ -221,6 +221,81 @@ function Delta({ info, children }: { info: NonNullable<ReturnType<typeof calcDel
   );
 }
 
+function LegendToggle({ open, onClick }: { open: boolean; onClick: () => void }) {
+  const { palette } = useTheme();
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-expanded={open}
+      style={{
+        display: "inline-flex", alignItems: "center", gap: 6,
+        padding: "0.3rem 0.65rem",
+        borderRadius: 20,
+        border: `1px solid ${palette.cardBorder}`,
+        background: open ? palette.buttonHover : "transparent",
+        color: palette.textMuted,
+        fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
+      }}
+    >
+      <span style={{
+        width: 14, height: 14, borderRadius: "50%",
+        border: `1px solid ${palette.cardBorder}`,
+        display: "inline-flex", alignItems: "center", justifyContent: "center",
+        fontSize: 9, fontWeight: 700, fontFamily: "'Times New Roman', serif", fontStyle: "italic",
+      }}>?</span>
+      Come leggere
+    </button>
+  );
+}
+
+function ScatterLegend() {
+  const { palette } = useTheme();
+  const items = [
+    { label: "Scala", color: "#22c55e", where: "alto-sx", desc: "ROAS alto (≥ 2) + frequenza bassa (< 2,6): performance solida e pubblico non ancora saturo. Investi di più." },
+    { label: "Mantieni", color: "#64CBFF", where: "alto-dx", desc: "ROAS alto (≥ 2) ma frequenza già alta (≥ 2,6): sta performando ma il pubblico è vicino alla saturazione. Non toccare, prepara varianti." },
+    { label: "Osserva", color: "#EB9115", where: "basso-sx", desc: "ROAS basso (< 2) con frequenza bassa: pubblico non saturo ma la creatività non converte come dovrebbe. Dagli tempo o aggiusta targeting." },
+    { label: "Spegni", color: "#ef4444", where: "basso-dx", desc: "ROAS basso (< 2) e frequenza alta: il pubblico è saturo E non converte. Fermala prima di bruciare budget." },
+  ];
+  return (
+    <div style={{
+      background: palette.divider,
+      border: `1px solid ${palette.cardBorder}`,
+      borderRadius: 10, padding: "0.9rem 1rem", marginBottom: 12,
+      fontSize: 12, color: palette.text,
+    }}>
+      <p style={{ margin: "0 0 8px", fontSize: 11, fontWeight: 700, color: palette.textDim, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+        Come leggere la matrice
+      </p>
+      <p style={{ margin: "0 0 10px", color: palette.textMuted, lineHeight: 1.5 }}>
+        Ogni punto è una creatività Meta. Asse X = frequenza (quante volte lo stesso utente ha visto l&apos;ad). Asse Y = ROAS. Dimensione bolla = spesa nel periodo. Le linee tratteggiate a <strong>ROAS 2,0</strong> e <strong>frequenza 2,6</strong> dividono in 4 quadranti:
+      </p>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
+        {items.map((it) => (
+          <div key={it.label} style={{
+            padding: "8px 10px", borderRadius: 8,
+            background: palette.cardBg,
+            border: `1px solid ${palette.cardBorder}`,
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: it.color }} />
+              <span style={{ fontSize: 12, fontWeight: 700, color: it.color, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                {it.label}
+              </span>
+              <span style={{ marginLeft: "auto", fontSize: 10, color: palette.textDim, fontStyle: "italic" }}>
+                {it.where}
+              </span>
+            </div>
+            <p style={{ margin: 0, fontSize: 11, color: palette.textMuted, lineHeight: 1.4 }}>
+              {it.desc}
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function SubtabBtn({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   const { palette } = useTheme();
   return (
@@ -309,6 +384,7 @@ function GoogleAdsView({ data }: { data: DashboardData }) {
 function MetaView({ data }: { data: DashboardData }) {
   const [campWindow, setCampWindow] = useState<MetaWindow>("w30");
   const [scatterWindow, setScatterWindow] = useState<CreativesWindow>("w30");
+  const [legendOpen, setLegendOpen] = useState(false);
   const campaigns = data.meta?.campaigns?.[campWindow] ?? [];
   const scatterSrc = data.meta?.creatives?.[scatterWindow];
 
@@ -331,13 +407,15 @@ function MetaView({ data }: { data: DashboardData }) {
         <CardHeader
           title="Matrice creatività · ROAS × Frequenza"
           right={
-            <div style={{ display: "flex", gap: 6 }}>
+            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <LegendToggle open={legendOpen} onClick={() => setLegendOpen((v) => !v)} />
               <Pill active={scatterWindow === "w7"} onClick={() => setScatterWindow("w7")}>7g</Pill>
               <Pill active={scatterWindow === "w30"} onClick={() => setScatterWindow("w30")}>30g</Pill>
               <Pill active={scatterWindow === "w90"} onClick={() => setScatterWindow("w90")}>90g</Pill>
             </div>
           }
         />
+        {legendOpen && <ScatterLegend />}
         {!scatterSrc || scatterSrc.rows.length === 0 ? (
           <EmptyState label={`Nessuna creatività per la finestra ${scatterWindow}`} />
         ) : (
