@@ -12,6 +12,10 @@ export function middleware(req: NextRequest) {
   if (pathname.startsWith("/dashboard/vitaedna")) return NextResponse.next();
   // /dashboard/centogiri ha la sua password gate client-side
   if (pathname.startsWith("/dashboard/centogiri")) return NextResponse.next();
+  // /dashboard/gondolina ha la sua password gate client-side
+  if (pathname.startsWith("/dashboard/gondolina")) return NextResponse.next();
+  // /dashboard/coorie ha la sua password gate client-side
+  if (pathname.startsWith("/dashboard/coorie")) return NextResponse.next();
 
   const session = req.cookies.get(SESSION_COOKIE);
   if (!session?.value) {
