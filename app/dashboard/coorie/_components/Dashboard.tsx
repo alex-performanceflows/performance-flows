@@ -79,25 +79,12 @@ function DashboardInner() {
           backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)",
         }}>
           <div style={{ padding: "1.5rem 1.25rem 1.75rem" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div style={{
-                width: 42, height: 42, borderRadius: "50%",
-                background: `linear-gradient(135deg, ${ACCENT} 0%, #4a6650 100%)`,
-                border: `1.5px solid ${SAND}`,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                color: "#ffffff", fontSize: 18, fontWeight: 500,
-                fontFamily: "'DM Serif Display', Georgia, serif",
-                letterSpacing: "-0.03em", flexShrink: 0,
-              }}>C</div>
-              <div>
-                <p style={{ margin: 0, fontSize: 14, fontWeight: 700, letterSpacing: "0.02em", color: ACCENT, fontFamily: "'DM Serif Display', Georgia, serif" }}>
-                  Coorie Beauty
-                </p>
-                <p style={{ margin: 0, fontSize: 10, fontWeight: 700, color: palette.textFaint, letterSpacing: "0.12em", textTransform: "uppercase" }}>
-                  Dashboard marketing
-                </p>
-              </div>
-            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={isDark ? "/logos/coorie-white.svg" : "/logos/coorie-dark.svg"} alt="Coorie Beauty"
+              height={30} style={{ height: 30, width: "auto", display: "block", marginBottom: 6 }} />
+            <p style={{ margin: 0, fontSize: 10, fontWeight: 700, color: palette.textFaint, letterSpacing: "0.12em", textTransform: "uppercase" }}>
+              Dashboard marketing
+            </p>
           </div>
 
           <nav style={{ padding: "0 0.75rem", display: "flex", flexDirection: "column", gap: 2, flex: 1 }}>
@@ -147,13 +134,9 @@ function DashboardInner() {
           position: "sticky", top: 0, zIndex: 40,
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{
-              width: 30, height: 30, borderRadius: "50%",
-              background: `linear-gradient(135deg, ${ACCENT} 0%, #4a6650 100%)`,
-              border: `1.5px solid ${SAND}`,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              color: "#ffffff", fontSize: 13, fontWeight: 500, fontFamily: "'DM Serif Display', Georgia, serif",
-            }}>C</div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={isDark ? "/logos/coorie-white.svg" : "/logos/coorie-dark.svg"} alt="Coorie" height={22}
+              style={{ height: 22, width: "auto", display: "block" }} />
             <span style={{ fontSize: 12, color: palette.textDim, paddingLeft: 10, borderLeft: `1px solid ${palette.divider}` }}>
               {activeLabel}
             </span>

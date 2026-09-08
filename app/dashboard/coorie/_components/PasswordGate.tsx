@@ -32,19 +32,11 @@ export function PasswordGate({ onAuthorized }: { onAuthorized: () => void }) {
         boxShadow: "0 10px 40px rgba(0,0,0,0.4)",
       }}>
         <div style={{ textAlign: "center", marginBottom: "1.25rem" }}>
-          <div style={{
-            display: "inline-flex", alignItems: "center", justifyContent: "center",
-            width: 60, height: 60, borderRadius: "50%",
-            background: `linear-gradient(135deg, ${SAGE} 0%, #4a6650 100%)`,
-            border: `2px solid ${SAND}`,
-            color: "#ffffff", fontSize: 24, fontWeight: 500,
-            fontFamily: "'DM Serif Display', Georgia, serif",
-            letterSpacing: "-0.03em",
-          }}>C</div>
-          <p style={{ margin: "0.9rem 0 0", fontSize: 11, fontWeight: 700, color: SAGE, letterSpacing: "0.16em", textTransform: "uppercase" }}>
-            Coorie Beauty
-          </p>
-          <p style={{ margin: "0.25rem 0 0", fontSize: 11, color: "rgba(255,255,255,0.5)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logos/coorie-white.svg" alt="Coorie Beauty"
+            width={180} height={38}
+            style={{ display: "inline-block", height: 38, width: "auto", maxWidth: "70%" }} />
+          <p style={{ margin: "0.75rem 0 0", fontSize: 11, color: "rgba(255,255,255,0.55)", letterSpacing: "0.12em", textTransform: "uppercase" }}>
             Dashboard marketing
           </p>
         </div>
