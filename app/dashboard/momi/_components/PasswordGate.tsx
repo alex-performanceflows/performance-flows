@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ACCENT, CREAM } from "../config";
+import { ACCENT, BRAND_NAVY, CREAM } from "../config";
 
 const CORRECT_PASSWORD = "momi";
 
@@ -18,7 +18,7 @@ export function PasswordGate({ onAuthorized }: { onAuthorized: () => void }) {
   return (
     <div style={{
       minHeight: "100dvh",
-      background: "radial-gradient(ellipse at top, #1a0f0a 0%, #100906 55%, #0a0906 100%)",
+      background: `radial-gradient(ellipse at top, ${BRAND_NAVY} 0%, #0f1226 55%, #0a0d1a 100%)`,
       display: "flex", alignItems: "center", justifyContent: "center",
       padding: "1.5rem", fontFamily: "Inter, sans-serif", color: "#ffffff",
     }}>
@@ -31,19 +31,10 @@ export function PasswordGate({ onAuthorized }: { onAuthorized: () => void }) {
         boxShadow: "0 10px 40px rgba(0,0,0,0.5)",
       }}>
         <div style={{ textAlign: "center", marginBottom: "1.25rem" }}>
-          <div style={{
-            display: "inline-flex", alignItems: "center", justifyContent: "center",
-            width: 62, height: 62, borderRadius: "50%",
-            background: `linear-gradient(135deg, ${ACCENT} 0%, #8a3a24 100%)`,
-            border: `2px solid ${CREAM}`,
-            color: CREAM, fontSize: 22, fontWeight: 500,
-            fontFamily: "'DM Serif Display', Georgia, serif",
-            letterSpacing: "-0.03em",
-          }}>M</div>
-          <p style={{ margin: "0.85rem 0 0", fontSize: 11, fontWeight: 700, color: CREAM, letterSpacing: "0.16em", textTransform: "uppercase" }}>
-            MOMI
-          </p>
-          <p style={{ margin: "0.25rem 0 0", fontSize: 11, color: "rgba(255,255,255,0.55)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logos/momi-white.png" alt="MOMI"
+            style={{ display: "inline-block", height: 44, width: "auto", maxWidth: "70%" }} />
+          <p style={{ margin: "0.6rem 0 0", fontSize: 11, color: "rgba(255,255,255,0.55)", letterSpacing: "0.12em", textTransform: "uppercase" }}>
             Dashboard marketing
           </p>
         </div>
@@ -64,7 +55,7 @@ export function PasswordGate({ onAuthorized }: { onAuthorized: () => void }) {
         {error && <p style={{ color: "#f87171", fontSize: 12, margin: "0.5rem 0 0" }}>Password non corretta</p>}
         <button type="submit" disabled={!password} style={{
           width: "100%", marginTop: "1rem", padding: "0.7rem",
-          background: !password ? "rgba(255,255,255,0.08)" : `linear-gradient(135deg, ${ACCENT} 0%, #8a3a24 100%)`,
+          background: !password ? "rgba(255,255,255,0.08)" : `linear-gradient(135deg, ${ACCENT} 0%, #5d67c9 100%)`,
           color: !password ? "rgba(255,255,255,0.4)" : CREAM,
           border: "none", borderRadius: 8, fontSize: 14, fontWeight: 700,
           cursor: !password ? "not-allowed" : "pointer",

@@ -8,7 +8,7 @@ import {
   NavContext, TabKey,
   type Palette,
 } from "./shared";
-import { ACCENT, CREAM } from "../config";
+import { ACCENT, BRAND_NAVY, CREAM } from "../config";
 import { DateRangePicker } from "./DateRangePicker";
 import { PanoramicaTab } from "./PanoramicaTab";
 import { AdvertisingTab } from "./AdvertisingTab";
@@ -69,36 +69,23 @@ function DashboardInner() {
     <div data-theme={theme} style={{
       minHeight: "100dvh",
       background: isDark
-        ? "radial-gradient(ellipse at top, #1a0f0a 0%, #100906 55%, #0a0906 100%)"
+        ? `radial-gradient(ellipse at top, ${BRAND_NAVY} 0%, #0f1226 55%, #0a0d1a 100%)`
         : palette.shellBg,
       color: palette.text, fontFamily: "Inter, sans-serif",
     }}>
       <div className="pf-shell">
         <aside className="pf-sidebar" style={{
-          background: isDark ? "rgba(16,9,6,0.85)" : palette.sidebarBg,
+          background: isDark ? `rgba(15,18,38,0.85)` : palette.sidebarBg,
           borderRight: `1px solid ${palette.sidebarBorder}`,
           backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)",
         }}>
           <div style={{ padding: "1.5rem 1.25rem 1.75rem" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div style={{
-                width: 42, height: 42, borderRadius: "50%",
-                background: `linear-gradient(135deg, ${ACCENT} 0%, #8a3a24 100%)`,
-                border: `1.5px solid ${CREAM}`,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                color: CREAM, fontSize: 18, fontWeight: 500,
-                fontFamily: "'DM Serif Display', Georgia, serif",
-                letterSpacing: "-0.03em", flexShrink: 0,
-              }}>M</div>
-              <div>
-                <p style={{ margin: 0, fontSize: 15, fontWeight: 700, letterSpacing: "0.02em", color: ACCENT, fontFamily: "'DM Serif Display', Georgia, serif" }}>
-                  MOMI
-                </p>
-                <p style={{ margin: 0, fontSize: 10, fontWeight: 700, color: palette.textFaint, letterSpacing: "0.12em", textTransform: "uppercase" }}>
-                  Dashboard marketing
-                </p>
-              </div>
-            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={isDark ? "/logos/momi-white.png" : "/logos/momi.png"} alt="MOMI"
+              style={{ height: 26, width: "auto", display: "block", marginBottom: 8 }} />
+            <p style={{ margin: 0, fontSize: 10, fontWeight: 700, color: palette.textFaint, letterSpacing: "0.12em", textTransform: "uppercase" }}>
+              Dashboard marketing
+            </p>
           </div>
 
           <nav style={{ padding: "0 0.75rem", display: "flex", flexDirection: "column", gap: 2, flex: 1 }}>
@@ -141,7 +128,7 @@ function DashboardInner() {
 
         {/* Mobile bar */}
         <div className="pf-mobile-bar" style={{
-          background: isDark ? "rgba(16,9,6,0.9)" : palette.sidebarBg,
+          background: isDark ? `rgba(15,18,38,0.9)` : palette.sidebarBg,
           backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)",
           borderBottom: `1px solid ${palette.divider}`,
           padding: "0.8rem 1rem", display: "none",
@@ -149,13 +136,9 @@ function DashboardInner() {
           position: "sticky", top: 0, zIndex: 40,
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{
-              width: 30, height: 30, borderRadius: "50%",
-              background: `linear-gradient(135deg, ${ACCENT} 0%, #8a3a24 100%)`,
-              border: `1.5px solid ${CREAM}`,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              color: CREAM, fontSize: 13, fontWeight: 500, fontFamily: "'DM Serif Display', Georgia, serif",
-            }}>M</div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={isDark ? "/logos/momi-white.png" : "/logos/momi.png"} alt="MOMI"
+              style={{ height: 20, width: "auto", display: "block" }} />
             <span style={{ fontSize: 12, color: palette.textDim, paddingLeft: 10, borderLeft: `1px solid ${palette.divider}` }}>
               {activeLabel}
             </span>
@@ -175,7 +158,7 @@ function DashboardInner() {
         </div>
         {mobileNavOpen && (
           <div className="pf-mobile-menu" style={{
-            display: "none", background: isDark ? "rgba(16,9,6,0.95)" : palette.sidebarBg,
+            display: "none", background: isDark ? `rgba(15,18,38,0.95)` : palette.sidebarBg,
             borderBottom: `1px solid ${palette.divider}`, padding: "0.75rem",
             position: "sticky", top: 62, zIndex: 39,
           }}>
@@ -242,7 +225,7 @@ function DashboardInner() {
           100% { background-position: -200% 0; }
         }
         html, body {
-          background: ${isDark ? "#0a0906" : "#f6f2ec"};
+          background: ${isDark ? "#0a0d1a" : "#f6f4ff"};
           transition: background 0.25s;
         }
         .pf-shell {

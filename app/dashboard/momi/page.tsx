@@ -22,7 +22,7 @@ export default function MomiPage() {
     setAuthorized(true);
   }
 
-  if (!hydrated) return <div style={{ minHeight: "100dvh", background: "#0a0906" }} />;
+  if (!hydrated) return <div style={{ minHeight: "100dvh", background: "#0a0d1a" }} />;
   if (!authorized) return <PasswordGate onAuthorized={handleAuthorized} />;
   return <Dashboard />;
 }

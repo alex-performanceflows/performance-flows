@@ -24,13 +24,14 @@ export const V_FAN = {
 // Soglia % di spesa su creatività SPEGNI oltre cui l'header diventa rosso
 export const SPESA_SPEGNI_ALERT_PCT = 15;
 
-// Palette
-export const ACCENT = "#c85a3f";    // caldo, unico highlight
-export const CREAM = "#f3eee8";     // testi in evidenza
+// Palette · brand ufficiale MOMI (getmomi.com)
+export const BRAND_NAVY = "#1a203d";       // navy MOMI (dal logo)
+export const ACCENT = "#7d87ff";           // indigo chiaro leggibile su dark
+export const CREAM = "#f3eee8";            // testi in evidenza
 export const CREAM_SOFT = "#e5ddd0";
 export const CHART_PALETTE = [
-  "#c85a3f", "#f3eee8", "#8a6d55", "#a3735a",
-  "#5f7d63", "#4a6a8a", "#b39456", "#9aa4a4",
+  "#7d87ff", "#f3eee8", "#a685ff", "#4a5178",
+  "#c0c6ff", "#8894c8", "#e0dfff", "#9aa4a4",
 ];
 export const POSITIVE = "#22c55e";
 export const NEGATIVE = "#ef4444";
