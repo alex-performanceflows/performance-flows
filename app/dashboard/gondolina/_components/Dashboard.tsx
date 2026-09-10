@@ -283,9 +283,35 @@ function DashboardInner() {
   );
 }
 
-// ─── Honesty banner ───────────────────────────────────────────────
+// ─── Honesty banner (dismissibile, ricordato in localStorage) ─────
+
+const HONESTY_KEY = "pf.gondolina.honestyHidden";
 
 function HonestyBanner({ perimetro, palette }: { perimetro?: string; palette: Palette }) {
+  const [hidden, setHidden] = useState<boolean>(false);
+  useEffect(() => { try { setHidden(localStorage.getItem(HONESTY_KEY) === "1"); } catch {} }, []);
+  function hide() {
+    try { localStorage.setItem(HONESTY_KEY, "1"); } catch {}
+    setHidden(true);
+  }
+  function show() {
+    try { localStorage.removeItem(HONESTY_KEY); } catch {}
+    setHidden(false);
+  }
+  if (hidden) {
+    return (
+      <button onClick={show} title="Mostra la nota sulla fonte dei dati"
+        style={{
+          flex: "0 0 auto", cursor: "pointer",
+          padding: "0.35rem 0.7rem", borderRadius: 8,
+          border: `1px solid ${palette.cardBorder}`, background: palette.divider,
+          color: palette.textDim, fontSize: 11, fontFamily: "inherit",
+          display: "inline-flex", alignItems: "center", gap: 6,
+        }}>
+        <span style={{ opacity: 0.7 }}>ⓘ</span> Nota sulla fonte dei dati
+      </button>
+    );
+  }
   return (
     <div style={{
       flex: "1 1 300px", display: "flex", alignItems: "flex-start", gap: 10,
@@ -300,10 +326,16 @@ function HonestyBanner({ perimetro, palette }: { perimetro?: string; palette: Pa
         background: GOLD, color: "#0f0a10",
         fontSize: 11, fontWeight: 700, flexShrink: 0, marginTop: 1,
       }}>i</span>
-      <span>
+      <span style={{ flex: 1 }}>
         <strong style={{ color: palette.text }}>Dati di traffico e conversione da Google Analytics.</strong> Il fatturato reale si legge nella dashboard Shopify: qui i valori servono per il trend, il confronto fra canali e la valutazione delle campagne.
         {perimetro && <span style={{ display: "block", marginTop: 4, fontSize: 10, color: palette.textDim, fontStyle: "italic" }}>{perimetro}</span>}
       </span>
+      <button onClick={hide} title="Nascondi questa nota"
+        style={{
+          flexShrink: 0, cursor: "pointer", background: "transparent", border: "none",
+          padding: "2px 6px", borderRadius: 4, color: palette.textDim,
+          fontSize: 16, lineHeight: 1, fontFamily: "inherit",
+        }}>×</button>
     </div>
   );
 }

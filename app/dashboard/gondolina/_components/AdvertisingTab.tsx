@@ -723,23 +723,13 @@ function ValutazioneTable({ rows, expandedIdx, setExpandedIdx }: {
                   <td style={{ ...ts.tdBase, ...ts.tdRight, fontWeight: v.acquisti > 0 ? 600 : 400 }}>{integer(v.acquisti)}</td>
                   <td style={{ ...ts.tdBase, ...ts.tdRight, color: v.roas >= AD_CFG.ROAS_GOOD ? POSITIVE : v.roas > 0 && v.roas < 1 ? NEGATIVE : ts.tdBase.color, fontWeight: 700 }}>{v.roas > 0 ? num(v.roas, 2) : "—"}</td>
                 </tr>
-                {isOpen && (
+                {isOpen && v.segnali.length > 0 && (
                   <tr style={{ background: palette.divider }}>
                     <td colSpan={12} style={{ padding: "1rem 1.25rem" }}>
-                      <div style={{
-                        padding: "0.8rem 1rem", background: palette.cardBg, border: `1px solid ${palette.cardBorder}`,
-                        borderLeft: `3px solid ${VERDICT_UI[v.verdetto].color}`, borderRadius: 8, marginBottom: 12,
-                      }}>
-                        <p style={{ margin: 0, fontSize: 13, color: palette.text, fontWeight: 500 }}>{v.azione}</p>
-                      </div>
-                      {v.segnali.length > 0 && (
-                        <div style={{ marginBottom: 4 }}>
-                          <p style={{ margin: "0 0 6px", fontSize: 10, fontWeight: 700, color: palette.textDim, textTransform: "uppercase", letterSpacing: "0.05em" }}>Segnali</p>
-                          <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: palette.textMuted, lineHeight: 1.6 }}>
-                            {v.segnali.map((s, si) => <li key={si}>{s}</li>)}
-                          </ul>
-                        </div>
-                      )}
+                      <p style={{ margin: "0 0 6px", fontSize: 10, fontWeight: 700, color: palette.textDim, textTransform: "uppercase", letterSpacing: "0.05em" }}>Diagnostica</p>
+                      <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: palette.textMuted, lineHeight: 1.6 }}>
+                        {v.segnali.map((s, si) => <li key={si}>{s}</li>)}
+                      </ul>
                     </td>
                   </tr>
                 )}

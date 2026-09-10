@@ -273,7 +273,27 @@ function DashboardInner() {
   );
 }
 
+const REV_NOTE_KEY = "pf.coorie.revNoteHidden";
+
 function RevenueNoteBanner({ palette }: { palette: Palette }) {
+  const [hidden, setHidden] = useState<boolean>(false);
+  useEffect(() => { try { setHidden(localStorage.getItem(REV_NOTE_KEY) === "1"); } catch {} }, []);
+  function hide() { try { localStorage.setItem(REV_NOTE_KEY, "1"); } catch {} setHidden(true); }
+  function show() { try { localStorage.removeItem(REV_NOTE_KEY); } catch {} setHidden(false); }
+  if (hidden) {
+    return (
+      <button onClick={show} title="Mostra la nota sulla fonte dei dati"
+        style={{
+          flex: "0 0 auto", cursor: "pointer",
+          padding: "0.35rem 0.7rem", borderRadius: 8,
+          border: `1px solid ${palette.cardBorder}`, background: palette.divider,
+          color: palette.textDim, fontSize: 11, fontFamily: "inherit",
+          display: "inline-flex", alignItems: "center", gap: 6,
+        }}>
+        <span style={{ opacity: 0.7 }}>ⓘ</span> Nota sulla fonte dei dati
+      </button>
+    );
+  }
   return (
     <div style={{
       flex: "1 1 300px", display: "flex", alignItems: "flex-start", gap: 10,
@@ -288,9 +308,15 @@ function RevenueNoteBanner({ palette }: { palette: Palette }) {
         background: ACCENT, color: "#ffffff",
         fontSize: 11, fontWeight: 700, flexShrink: 0, marginTop: 1,
       }}>i</span>
-      <span>
+      <span style={{ flex: 1 }}>
         <strong style={{ color: palette.text }}>Ricavi da GA4 ecommerce.</strong> Nessun connettore Shopify: la revenue è sottostimata rispetto agli ordini reali finché il tracking non è completo. Usare per trend e confronto fra canali.
       </span>
+      <button onClick={hide} title="Nascondi questa nota"
+        style={{
+          flexShrink: 0, cursor: "pointer", background: "transparent", border: "none",
+          padding: "2px 6px", borderRadius: 4, color: palette.textDim,
+          fontSize: 16, lineHeight: 1, fontFamily: "inherit",
+        }}>×</button>
     </div>
   );
 }
