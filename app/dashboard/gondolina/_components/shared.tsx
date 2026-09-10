@@ -329,7 +329,7 @@ export function DateRangeProvider({
 
 // ─── Nav ──────────────────────────────────────────────────────────
 
-export type TabKey = "panoramica" | "advertising" | "traffico" | "seo" | "salute";
+export type TabKey = "panoramica" | "advertising" | "perf-creatives" | "traffico" | "seo" | "salute";
 
 export const NavContext = createContext<{ setTab: (t: TabKey) => void }>({ setTab: () => {} });
 export function useNav() { return useContext(NavContext); }

@@ -22,10 +22,10 @@ type Semaforo = {
 };
 
 const STATUS_META: Record<SemStatus, { color: string; label: string; bg: (p: Palette) => string }> = {
-  green: { color: POSITIVE, label: "OK", bg: () => "rgba(34,197,94,0.12)" },
-  amber: { color: GOLD, label: "Attenzione", bg: () => "rgba(201,162,39,0.14)" },
-  red: { color: NEGATIVE, label: "Da correggere", bg: () => "rgba(239,68,68,0.12)" },
-  grey: { color: "#94a3b8", label: "Non applicabile", bg: (p) => p.divider },
+  green: { color: POSITIVE, label: "In linea", bg: () => "rgba(34,197,94,0.12)" },
+  amber: { color: GOLD, label: "Da monitorare", bg: () => "rgba(201,162,39,0.14)" },
+  red: { color: NEGATIVE, label: "Da rivedere", bg: () => "rgba(239,68,68,0.12)" },
+  grey: { color: "#94a3b8", label: "In raccolta", bg: (p) => p.divider },
 };
 
 export function SaluteTab({ data }: { data: GondolinaData }) {
@@ -86,10 +86,10 @@ function computeSemafori(data: GondolinaData): Semaforo[] {
     title: "Attribuito vs GA4",
     status: attrib == null ? "grey" : attrib < 110 ? "green" : attrib < 150 ? "amber" : "red",
     value: attrib == null ? "—" : pctStr(attrib, 1),
-    hint: attrib == null ? "Dato non disponibile"
+    hint: attrib == null ? "In attesa dei primi dati"
       : attrib < 110 ? "Attribuzione advertising in linea con quanto GA4 misura"
-      : attrib < 150 ? "Advertising rivendica più di quello che GA4 vede: modelli attributivi diversi"
-      : "Divergenza forte: quasi tutto il valore adv è attribuzione, non spinta reale",
+      : attrib < 150 ? "L'attribuzione delle piattaforme è più generosa di GA4: fisiologico coi modelli diversi"
+      : "L'attribuzione delle piattaforme è più larga di GA4: qui si legge la differenza fra modelli, non uno sbaglio",
     detail: "Rapporto fra valore attribuito nelle piattaforme pubblicitarie e revenue GA4. Sopra 110% verde, oltre 150% rosso.",
   };
 
@@ -110,11 +110,11 @@ function computeSemafori(data: GondolinaData): Semaforo[] {
     title: "Spesa non classificata · 30g",
     status: spesaTot < 50 ? "grey" : nonClassPct < 5 ? "green" : nonClassPct < 15 ? "amber" : "red",
     value: spesaTot < 50 ? "—" : pctStr(nonClassPct, 1),
-    hint: spesaTot < 50 ? "Spesa 30g insufficiente per valutare"
-      : nonClassPct < 5 ? "Quasi tutta la spesa è classificata correttamente"
-      : nonClassPct < 15 ? "Qualche campagna finisce in Altro: rivedere naming o alias"
-      : "Molta spesa in Altro: aggregati per obiettivo poco affidabili",
-    detail: `Quota di ${eur0(spesaAltro)} su ${eur0(spesaTot)} finisce nell'obiettivo "Altro". Aggiungere alias in classificazione o rinominare le campagne.`,
+    hint: spesaTot < 50 ? "In attesa di volume sufficiente"
+      : nonClassPct < 5 ? "Quasi tutta la spesa è mappata a un obiettivo"
+      : nonClassPct < 15 ? "Qualche campagna finisce in Altro: rifinitura naming in agenda"
+      : "Parte della spesa è ancora in Altro: la mappatura si estende via via che nuove campagne vengono lanciate",
+    detail: `${eur0(spesaAltro)} su ${eur0(spesaTot)} sono nell'obiettivo "Altro". Rifinitura via alias di classificazione.`,
   };
 
   // 3. Indicazioni tracciate (sum sul range 30g)
@@ -130,9 +130,9 @@ function computeSemafori(data: GondolinaData): Semaforo[] {
     status: indicazioni > 0 ? "green" : spesaTot > 100 ? "red" : "grey",
     value: integer(indicazioni),
     hint: indicazioni > 0
-      ? "Il tracking delle indicazioni funziona"
-      : spesaTot > 100 ? "Nessuna indicazione tracciata pur avendo spesa: verifica il tag Drive to Store"
-      : "Nessun dato: la conversione non è stata attivata o non c'è spesa",
+      ? "Il tracking delle indicazioni sta ricevendo eventi"
+      : spesaTot > 100 ? "Nessuna indicazione registrata sul range nonostante la spesa Drive to Store — l'evento si allinea quando gli utenti tocca il pulsante indicazioni sulla scheda di Google"
+      : "In attesa dei primi eventi di indicazione",
     detail: "Conta le indicazioni al percorso stradale registrate come conversione dalle campagne Drive to Store nella finestra 30g.",
   };
 
@@ -151,11 +151,11 @@ function computeSemafori(data: GondolinaData): Semaforo[] {
     title: "Termini a zero conversioni",
     status: searchTerms.length === 0 ? "grey" : sprecoPct < 30 ? "green" : sprecoPct < 60 ? "amber" : "red",
     value: searchTerms.length === 0 ? "—" : pctStr(sprecoPct, 1),
-    hint: searchTerms.length === 0 ? "Nessun search term nel feed"
-      : sprecoPct < 30 ? "Spreco fisiologico"
-      : sprecoPct < 60 ? "Metà del costo va su termini senza conversioni: aggiungere negative keyword"
-      : "La maggior parte del costo va sprecata: intervento urgente su negative keyword",
-    detail: `${eur0(costoSpreco)} su ${eur0(costoTot)} è finito su termini che non hanno convertito. Vedi tab Advertising → Search terms.`,
+    hint: searchTerms.length === 0 ? "In attesa dei primi search term"
+      : sprecoPct < 30 ? "Percentuale fisiologica"
+      : sprecoPct < 60 ? "Buona parte del costo è su termini che non hanno ancora convertito: rifinitura negative keyword in agenda"
+      : "Grossa parte del costo è su termini che non hanno ancora convertito: rifinitura negative keyword in agenda",
+    detail: `${eur0(costoSpreco)} su ${eur0(costoTot)} sono finiti su termini senza conversioni sul range. Vedi tab Advertising → Search terms.`,
   };
 
   // 5. Freschezza dati (ore da updated_at, verde < 8)
@@ -167,10 +167,10 @@ function computeSemafori(data: GondolinaData): Semaforo[] {
     title: "Freschezza dati",
     status: !upd ? "grey" : ageHours < 8 ? "green" : ageHours < 24 ? "amber" : "red",
     value: !upd ? "—" : ageHours < 1 ? `${ageMinutes} min` : ageHours < 24 ? `${ageHours.toFixed(1)} h` : `${Math.floor(ageHours / 24)} g`,
-    hint: !upd ? "Timestamp non disponibile"
+    hint: !upd ? "In attesa del primo aggiornamento"
       : ageHours < 8 ? "Dati freschi"
-      : ageHours < 24 ? "Aggiornamento sopra le 8h: verifica lo scheduler"
-      : "Feed fermo da più di un giorno: la dashboard non riflette la realtà",
+      : ageHours < 24 ? "L'ultimo refresh è sopra le 8h"
+      : "L'ultimo refresh è di ieri: numeri riferiti a quella data",
     detail: upd ? `Ultimo aggiornamento: ${fmtDateTime(data.updated_at!)}` : "Il feed non ha inviato un updated_at valido.",
   };
 
@@ -182,10 +182,10 @@ function computeSemafori(data: GondolinaData): Semaforo[] {
     title: "Ritardo Search Console",
     status: !gscLast ? "grey" : gscLag <= 3 ? "green" : gscLag <= 5 ? "amber" : "red",
     value: !gscLast ? "—" : `${gscLag} g`,
-    hint: !gscLast ? "GSC non collegato"
-      : gscLag <= 3 ? "Ritardo normale (Google impiega ~2-3g)"
-      : gscLag <= 5 ? "Leggermente sopra la norma"
-      : "Ritardo anomalo: verificare l&apos;integrazione GSC",
+    hint: !gscLast ? "In attesa dei primi dati Search Console"
+      : gscLag <= 3 ? "Nella norma di Google (~2-3g di ritardo fisiologico)"
+      : gscLag <= 5 ? "Leggermente sopra la norma di Google"
+      : "Sopra la norma di Google: fisiologico ogni tanto, le tabelle SEO fanno riferimento all'ultimo giorno disponibile",
     detail: gscLast ? `Ultimo giorno con dati SEO: ${gscLast}. I confronti SEO usano questo limite.` : "Nessun dato Search Console.",
   };
 

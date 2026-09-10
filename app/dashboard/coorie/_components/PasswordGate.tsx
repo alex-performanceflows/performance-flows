@@ -33,10 +33,13 @@ export function PasswordGate({ onAuthorized }: { onAuthorized: () => void }) {
       }}>
         <div style={{ textAlign: "center", marginBottom: "1.25rem" }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logos/coorie-white.svg" alt="Coorie Beauty"
-            width={180} height={38}
-            style={{ display: "inline-block", height: 38, width: "auto", maxWidth: "70%" }} />
-          <p style={{ margin: "0.75rem 0 0", fontSize: 11, color: "rgba(255,255,255,0.55)", letterSpacing: "0.12em", textTransform: "uppercase" }}>
+          <img src="/logos/coorie-icon.png" alt="Coorie Beauty"
+            width={72} height={72}
+            style={{ display: "inline-block", width: 72, height: 72, borderRadius: "50%" }} />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logos/coorie-white.svg" alt=""
+            style={{ display: "block", margin: "0.85rem auto 0", height: 22, width: "auto", maxWidth: "60%" }} />
+          <p style={{ margin: "0.4rem 0 0", fontSize: 11, color: "rgba(255,255,255,0.55)", letterSpacing: "0.12em", textTransform: "uppercase" }}>
             Dashboard marketing
           </p>
         </div>

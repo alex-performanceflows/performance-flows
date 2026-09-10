@@ -34,6 +34,10 @@ export function PanoramicaTab({ data }: { data: GondolinaData }) {
   const roasCur = advAgg.onlineSpend > 0 ? advAgg.onlineValue / advAgg.onlineSpend : 0;
   const roasPrev = advPrev && advPrev.onlineSpend > 0 ? advPrev.onlineValue / advPrev.onlineSpend : null;
 
+  // MER blended (GA4): revenue GA4 ÷ spesa totale advertising
+  const merCur = advAgg.totalSpend > 0 ? revCur / advAgg.totalSpend : 0;
+  const merPrev = advPrev && advPrev.totalSpend > 0 && revPrev != null ? revPrev / advPrev.totalSpend : null;
+
   const clicksOrgCur = sumInRange(data.gsc?.daily, range, 1);
   const clicksOrgPrev = compareRange ? sumInRange(data.gsc?.daily, compareRange, 1) : null;
   const impOrgCur = sumInRange(data.gsc?.daily, range, 2);
@@ -105,6 +109,9 @@ export function PanoramicaTab({ data }: { data: GondolinaData }) {
         <KpiTile label="ROAS" value={num(roasCur, 2)} delta={roasPrev != null ? calcDelta(roasCur, roasPrev) : null}
           info="Valore ÷ spesa sull'obiettivo Online. Non include Drive to Store (le vendite avvengono in boutique)."
           onClick={() => setTab("advertising")} />
+        <KpiTile label="MER (da GA4)" value={num(merCur, 2)} delta={merPrev != null ? calcDelta(merCur, merPrev) : null}
+          info="Marketing Efficiency Ratio calcolato con revenue GA4 ÷ spesa advertising totale. Da confrontare col MER reale letto su Shopify: qui è sottostimato perché GA4 vede meno transazioni degli ordini reali."
+          accent={GOLD} onClick={() => setTab("advertising")} />
       </div>
 
       {/* Chart 1: transazioni + spesa adv doppio asse */}

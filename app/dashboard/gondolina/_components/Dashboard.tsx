@@ -11,6 +11,7 @@ import {
 import { DateRangePicker } from "./DateRangePicker";
 import { PanoramicaTab } from "./PanoramicaTab";
 import { AdvertisingTab } from "./AdvertisingTab";
+import { PerformanceCreativesTab } from "./PerformanceCreativesTab";
 import { TrafficoTab } from "./TrafficoTab";
 import { SEOTab } from "./SEOTab";
 import { SaluteTab } from "./SaluteTab";
@@ -18,6 +19,7 @@ import { SaluteTab } from "./SaluteTab";
 const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
   { key: "panoramica", label: "Panoramica", icon: <IconOverview /> },
   { key: "advertising", label: "Advertising", icon: <IconAds /> },
+  { key: "perf-creatives", label: "Performance Creatives", icon: <IconFilm /> },
   { key: "traffico", label: "Traffico e conversione", icon: <IconTraffic /> },
   { key: "seo", label: "SEO", icon: <IconSearch /> },
   { key: "salute", label: "Salute del sistema", icon: <IconHeart /> },
@@ -225,6 +227,7 @@ function DashboardInner() {
             <>
               {tab === "panoramica" && <PanoramicaTab data={data} />}
               {tab === "advertising" && <AdvertisingTab data={data} />}
+              {tab === "perf-creatives" && <PerformanceCreativesTab data={data} />}
               {tab === "traffico" && <TrafficoTab data={data} />}
               {tab === "seo" && <SEOTab data={data} />}
               {tab === "salute" && <SaluteTab data={data} />}
@@ -345,6 +348,7 @@ function IconAds() { return <svg width="16" height="16" fill="none" stroke="curr
 function IconTraffic() { return <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" /></svg>; }
 function IconSearch() { return <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>; }
 function IconHeart() { return <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></svg>; }
+function IconFilm() { return <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18" /><line x1="7" y1="2" x2="7" y2="22" /><line x1="17" y1="2" x2="17" y2="22" /><line x1="2" y1="12" x2="22" y2="12" /><line x1="2" y1="7" x2="7" y2="7" /><line x1="2" y1="17" x2="7" y2="17" /><line x1="17" y1="17" x2="22" y2="17" /><line x1="17" y1="7" x2="22" y2="7" /></svg>; }
 function IconRefresh() { return <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" /><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" /></svg>; }
 function IconSun() { return <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" /></svg>; }
 function IconMoon() { return <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" /></svg>; }

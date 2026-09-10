@@ -79,12 +79,20 @@ function DashboardInner() {
           backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)",
         }}>
           <div style={{ padding: "1.5rem 1.25rem 1.75rem" }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={isDark ? "/logos/coorie-white.svg" : "/logos/coorie-dark.svg"} alt="Coorie Beauty"
-              height={30} style={{ height: 30, width: "auto", display: "block", marginBottom: 6 }} />
-            <p style={{ margin: 0, fontSize: 10, fontWeight: 700, color: palette.textFaint, letterSpacing: "0.12em", textTransform: "uppercase" }}>
-              Dashboard marketing
-            </p>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/logos/coorie-icon.png" alt="Coorie Beauty"
+                width={40} height={40}
+                style={{ width: 40, height: 40, borderRadius: "50%", flexShrink: 0 }} />
+              <div>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={isDark ? "/logos/coorie-white.svg" : "/logos/coorie-dark.svg"} alt="Coorie"
+                  height={20} style={{ height: 20, width: "auto", display: "block", marginBottom: 3 }} />
+                <p style={{ margin: 0, fontSize: 9, fontWeight: 700, color: palette.textFaint, letterSpacing: "0.12em", textTransform: "uppercase" }}>
+                  Dashboard marketing
+                </p>
+              </div>
+            </div>
           </div>
 
           <nav style={{ padding: "0 0.75rem", display: "flex", flexDirection: "column", gap: 2, flex: 1 }}>
@@ -135,8 +143,9 @@ function DashboardInner() {
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={isDark ? "/logos/coorie-white.svg" : "/logos/coorie-dark.svg"} alt="Coorie" height={22}
-              style={{ height: 22, width: "auto", display: "block" }} />
+            <img src="/logos/coorie-icon.png" alt="Coorie"
+              width={28} height={28}
+              style={{ width: 28, height: 28, borderRadius: "50%", flexShrink: 0 }} />
             <span style={{ fontSize: 12, color: palette.textDim, paddingLeft: 10, borderLeft: `1px solid ${palette.divider}` }}>
               {activeLabel}
             </span>

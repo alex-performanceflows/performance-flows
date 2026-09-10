@@ -20,10 +20,10 @@ type Semaforo = {
 };
 
 const STATUS_META: Record<SemStatus, { color: string; label: string; bg: string }> = {
-  green: { color: POSITIVE, label: "OK", bg: "rgba(34,197,94,0.12)" },
-  amber: { color: SAND, label: "Attenzione", bg: `${SAND}22` },
-  red: { color: NEGATIVE, label: "Da correggere", bg: "rgba(239,68,68,0.12)" },
-  grey: { color: "#94a3b8", label: "Non disponibile", bg: "rgba(148,163,184,0.15)" },
+  green: { color: POSITIVE, label: "In linea", bg: "rgba(34,197,94,0.12)" },
+  amber: { color: SAND, label: "Da monitorare", bg: `${SAND}22` },
+  red: { color: NEGATIVE, label: "Da consolidare", bg: "rgba(239,68,68,0.12)" },
+  grey: { color: "#94a3b8", label: "Non ancora attivo", bg: "rgba(148,163,184,0.15)" },
 };
 
 export function EmailSaluteTab({ data }: { data: CoorieData }) {
@@ -183,52 +183,52 @@ function computeSemafori(data: CoorieData): Semaforo[] {
       title: "Copertura Pixel Meta",
       status: pixel < 0 ? "grey" : pixel >= 85 ? "green" : pixel >= 60 ? "amber" : "red",
       value: pixel < 0 ? "—" : pctStr(pixel, 0),
-      hint: pixel < 0 ? "Dato non disponibile"
+      hint: pixel < 0 ? "In attesa dei primi dati"
         : pixel >= 85 ? "Il Pixel intercetta la maggior parte delle transazioni"
-        : pixel >= 60 ? "Copertura media: alcuni acquisti sfuggono al Pixel"
-        : "Copertura bassa: il Pixel perde molti acquisti, l'ottimizzazione ne risente",
-      detail: "Acquisti Meta ÷ transazioni GA4. Sopra 85% verde, 60-85% ambra, sotto 60% rosso.",
+        : pixel >= 60 ? "Copertura in fase di consolidamento"
+        : "Copertura ancora in costruzione: il segnale al Pixel si allinea man mano che il volume cresce",
+      detail: "Acquisti registrati dal Pixel ÷ transazioni GA4. Riferimento: sopra 85% ottimo, 60-85% da monitorare, sotto 60% da consolidare.",
     },
     {
       key: "gads",
       title: "Copertura conversioni Google Ads",
       status: gads < 0 ? "grey" : gads >= 85 ? "green" : gads >= 60 ? "amber" : "red",
       value: gads < 0 ? "—" : pctStr(gads, 0),
-      hint: gads < 0 ? "Dato non disponibile"
+      hint: gads < 0 ? "In attesa dei primi dati"
         : gads >= 85 ? "Google Ads riceve la maggior parte delle conversioni"
-        : gads >= 60 ? "Alcune conversioni non arrivano a Google Ads"
-        : "Molte conversioni non arrivano a Google: fixare il tag di conversione",
-      detail: "Sopra 85% verde, 60-85% ambra, sotto 60% rosso.",
+        : gads >= 60 ? "Segnale di conversione in fase di consolidamento"
+        : "Segnale di conversione ancora in costruzione: si allinea a mano a mano che il tracciamento matura",
+      detail: "Riferimento: sopra 85% ottimo, 60-85% da monitorare, sotto 60% da consolidare.",
     },
     {
       key: "spesa-non-class",
       title: "Spesa non classificata",
       status: nonClass < 0 ? "grey" : nonClass < 5 ? "green" : nonClass < 15 ? "amber" : "red",
       value: nonClass < 0 ? "—" : pctStr(nonClass, 1),
-      hint: nonClass < 0 ? "Dato non disponibile"
-        : nonClass < 5 ? "Quasi tutta la spesa è classificata correttamente"
-        : nonClass < 15 ? "Alcune campagne senza obiettivo esplicito: rivedere la classificazione"
-        : "Molta spesa non classificata: gli aggregati per obiettivo sono inaffidabili",
-      detail: "Spesa senza obiettivo assegnato ÷ spesa totale. Sotto 5% verde.",
+      hint: nonClass < 0 ? "In attesa dei primi dati"
+        : nonClass < 5 ? "Quasi tutta la spesa è mappata a un obiettivo"
+        : nonClass < 15 ? "Qualche campagna finisce in Altro: rifinitura naming in agenda"
+        : "Parte della spesa è ancora in Altro: la mappatura si estende via via che nuove campagne vengono lanciate",
+      detail: "Spesa senza obiettivo esplicito ÷ spesa totale. Riferimento: sotto 5% ottimo.",
     },
     {
       key: "gsc-lag",
       title: "Ritardo Search Console",
       status: gscLag < 0 ? "grey" : gscLag <= 3 ? "green" : gscLag <= 5 ? "amber" : "red",
       value: gscLag < 0 ? "—" : `${gscLag} g`,
-      hint: gscLag < 0 ? "Dato non disponibile"
-        : gscLag <= 3 ? "Ritardo normale (Google impiega ~2-3g)"
-        : gscLag <= 5 ? "Leggermente sopra la norma"
-        : "Ritardo anomalo: verificare la connessione",
-      detail: "Giorni fra oggi e ultimo giorno GSC disponibile.",
+      hint: gscLag < 0 ? "In attesa dei primi dati"
+        : gscLag <= 3 ? "Nella norma di Google (~2-3g di ritardo fisiologico)"
+        : gscLag <= 5 ? "Leggermente sopra la norma di Google"
+        : "Sopra la norma di Google: fisiologico ogni tanto, le tabelle SEO fanno riferimento all'ultimo giorno disponibile",
+      detail: "Giorni fra oggi e ultimo giorno disponibile in Search Console.",
     },
     {
       key: "first-date",
       title: "Primo giorno di dati GA4",
       status: firstDate ? "green" : "grey",
       value: firstDate ? fmtDate(firstDate) : "—",
-      hint: firstDate ? "Le richieste con range precedente mostreranno solo giorni con dati" : "Nessun dato GA4",
-      detail: "Range che iniziano prima di questa data hanno copertura parziale.",
+      hint: firstDate ? "I range che partono prima di questa data mostrano soltanto i giorni con dati" : "In attesa dei primi dati GA4",
+      detail: "Data del primo evento GA4 utile. I confronti storici partono da qui.",
     },
   ];
 }

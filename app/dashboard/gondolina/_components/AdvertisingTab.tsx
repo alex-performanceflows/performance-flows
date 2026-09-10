@@ -563,7 +563,9 @@ function CreativitaMetaView({ data }: { data: GondolinaData }) {
   const { palette } = useTheme();
   const [filter, setFilter] = useState<"all" | "da-scalare" | "da-rinnovare" | "da-rivedere" | "da-spegnere">("all");
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
-  const valutazione = data.meta?.valutazione ?? [];
+  // Aggreghiamo per nome + formato: Meta espone la stessa creatività su più
+  // adset/placement, qui la sommiamo in un'unica riga.
+  const valutazione = useMemo(() => aggregateValutazione(data.meta?.valutazione ?? []), [data.meta?.valutazione]);
   const benchmark = data.meta?.benchmark;
 
   const counts = useMemo(() => {
@@ -1129,4 +1131,150 @@ function BreakTable({ rows, head, palette, highlight }: {
       </table>
     </div>
   );
+}
+
+// ─── Aggregazione valutazione per nome + formato ───────────────────
+
+function aggregateValutazione(rows: MetaValutazione[]): MetaValutazione[] {
+  const byKey = new Map<string, MetaValutazione[]>();
+  for (const v of rows) {
+    const key = v.nome.toLowerCase().trim() + "|" + v.formato.toLowerCase().trim();
+    const arr = byKey.get(key);
+    if (arr) arr.push(v); else byKey.set(key, [v]);
+  }
+  const out: MetaValutazione[] = [];
+  for (const parts of byKey.values()) {
+    if (parts.length === 1) { out.push(parts[0]); continue; }
+    // Additive: spesa, impr, acquisti, atc
+    let spesa = 0, impr = 0, acquisti = 0, atc = 0;
+    // Valore derivato dal ROAS di riga: valore = roas * spesa; sommato → ROAS aggregato
+    let valore = 0;
+    // Weighted-by-impr: hook, ctr_link
+    let hookNumerator = 0, ctrNumerator = 0;
+    // Meta scelte dalla riga con più spesa
+    let best = parts[0]; let bestSpesa = -1;
+    for (const p of parts) {
+      spesa += p.spesa; impr += p.impr; acquisti += p.acquisti; atc += p.atc;
+      valore += (p.roas ?? 0) * p.spesa;
+      hookNumerator += (p.hook ?? 0) * p.impr;
+      ctrNumerator += (p.ctr_link ?? 0) * p.impr;
+      if (p.spesa > bestSpesa) { bestSpesa = p.spesa; best = p; }
+    }
+    out.push({
+      nome: parts[0].nome,
+      formato: parts[0].formato,
+      soggetto: parts[0].soggetto,
+      stadio: best.stadio,
+      verdetto: best.verdetto,
+      azione: best.azione,
+      segnali: best.segnali,
+      fatigue: best.fatigue ?? null,
+      // Indice pesato per spesa (media ponderata)
+      indice: spesa > 0 ? parts.reduce((s, p) => s + p.indice * p.spesa, 0) / spesa : best.indice,
+      spesa,
+      impr,
+      acquisti,
+      atc,
+      hook: impr > 0 ? hookNumerator / impr : (best.hook ?? 0),
+      ctr_link: impr > 0 ? ctrNumerator / impr : (best.ctr_link ?? 0),
+      costo_atc: atc > 0 ? spesa / atc : (best.costo_atc ?? 0),
+      roas: spesa > 0 ? valore / spesa : 0,
+    });
+  }
+  // Ripristina l'ordinamento originale del motore: prima quelle con verdetto più "caldo"
+  const rank: Record<MetaVerdict, number> = {
+    "SCALA": 0, "PROMETTE": 1, "RINNOVA": 2, "DA RIVEDERE": 3,
+    "SPEGNI": 4, "MANTIENI": 5, "OSSERVA": 6, "IN RACCOLTA": 7,
+  };
+  out.sort((a, b) => (rank[a.verdetto] - rank[b.verdetto]) || (b.spesa - a.spesa));
+  return out;
+}
+
+// ─── Aggregazione grezza dal creative_head (per Performance Creatives Workflow)
+
+export type CreativeMetricsRaw = {
+  nome: string; formato: string; soggetto: string;
+  stato: string; obiettivo: string;
+  spesa: number; impression: number; reach: number; frequenza: number;
+  click: number; ctr: number; cpm: number; cpc: number;
+  lpv: number; atc: number; checkout: number; acquisti: number;
+  valore: number; roas: number;
+  clickLink: number; ctrLink: number; cpcLink: number; lpvRate: number;
+  costoLpv: number; costoAtc: number;
+  hookRate: number; holdRate: number; ritenzione50: number; tempoMedio: number;
+  rankQualita: string; rankEngagement: string; rankConversione: string;
+};
+
+export function toRawMetrics(r: (string | number)[]): CreativeMetricsRaw {
+  return {
+    nome: String(r[0] ?? ""), formato: String(r[1] ?? ""), soggetto: String(r[2] ?? ""),
+    stato: String(r[3] ?? ""), obiettivo: String(r[4] ?? ""),
+    spesa: Number(r[5]) || 0, impression: Number(r[6]) || 0, reach: Number(r[7]) || 0, frequenza: Number(r[8]) || 0,
+    click: Number(r[9]) || 0, ctr: Number(r[10]) || 0, cpm: Number(r[11]) || 0, cpc: Number(r[12]) || 0,
+    lpv: Number(r[13]) || 0, atc: Number(r[14]) || 0, checkout: Number(r[15]) || 0, acquisti: Number(r[16]) || 0,
+    valore: Number(r[17]) || 0, roas: Number(r[18]) || 0,
+    // r[19] = CPA
+    // r[20-22] = ATC rate, checkout rate, purchase rate
+    costoLpv: Number(r[23]) || 0, costoAtc: Number(r[24]) || 0,
+    // r[25] = costo per IC
+    clickLink: Number(r[26]) || 0, ctrLink: Number(r[27]) || 0, cpcLink: Number(r[28]) || 0, lpvRate: Number(r[29]) || 0,
+    hookRate: Number(r[30]) || 0, holdRate: Number(r[31]) || 0,
+    ritenzione50: Number(r[32]) || 0, tempoMedio: Number(r[33]) || 0,
+    rankQualita: String(r[34] ?? "—"), rankEngagement: String(r[35] ?? "—"), rankConversione: String(r[36] ?? "—"),
+  };
+}
+
+// Aggrega raw per nome + formato con la stessa logica del motore
+export function aggregateRawByNameFormato(rows: (string | number)[][]): CreativeMetricsRaw[] {
+  const byKey = new Map<string, CreativeMetricsRaw[]>();
+  for (const r of rows) {
+    const m = toRawMetrics(r);
+    const key = m.nome.toLowerCase().trim() + "|" + m.formato.toLowerCase().trim();
+    if (!key) continue;
+    const arr = byKey.get(key);
+    if (arr) arr.push(m); else byKey.set(key, [m]);
+  }
+  const out: CreativeMetricsRaw[] = [];
+  for (const parts of byKey.values()) {
+    if (parts.length === 1) { out.push(parts[0]); continue; }
+    let spesa = 0, impression = 0, reach = 0, click = 0, lpv = 0, atc = 0, checkout = 0, acquisti = 0, valore = 0, clickLink = 0;
+    let hookNum = 0, holdNum = 0, ret50Num = 0, tempoNum = 0, ctrLinkNum = 0, cpcLinkDenom = 0;
+    let best = parts[0]; let bestSpesa = -1;
+    let stato = parts[0].stato;
+    for (const p of parts) {
+      spesa += p.spesa; impression += p.impression; reach += p.reach; click += p.click;
+      lpv += p.lpv; atc += p.atc; checkout += p.checkout; acquisti += p.acquisti;
+      valore += p.valore; clickLink += p.clickLink;
+      hookNum += (p.hookRate ?? 0) * p.impression;
+      holdNum += (p.holdRate ?? 0) * p.impression;
+      ret50Num += (p.ritenzione50 ?? 0) * p.impression;
+      tempoNum += (p.tempoMedio ?? 0) * p.impression;
+      ctrLinkNum += (p.ctrLink ?? 0) * p.impression;
+      cpcLinkDenom += p.clickLink;
+      if (p.stato === "ACTIVE") stato = "ACTIVE";
+      else if (p.stato === "PAUSED" && stato !== "ACTIVE") stato = "PAUSED";
+      if (p.spesa > bestSpesa) { bestSpesa = p.spesa; best = p; }
+    }
+    out.push({
+      nome: parts[0].nome, formato: parts[0].formato, soggetto: parts[0].soggetto,
+      stato, obiettivo: best.obiettivo,
+      spesa, impression, reach, click, lpv, atc, checkout, acquisti, valore, clickLink,
+      frequenza: reach > 0 ? impression / reach : 0,
+      ctr: impression > 0 ? (click / impression) * 100 : 0,
+      cpm: impression > 0 ? (spesa / impression) * 1000 : 0,
+      cpc: click > 0 ? spesa / click : 0,
+      cpcLink: cpcLinkDenom > 0 ? spesa / cpcLinkDenom : 0,
+      ctrLink: impression > 0 ? ctrLinkNum / impression : 0,
+      lpvRate: click > 0 ? (lpv / click) * 100 : 0,
+      costoLpv: lpv > 0 ? spesa / lpv : 0,
+      costoAtc: atc > 0 ? spesa / atc : 0,
+      roas: spesa > 0 ? valore / spesa : 0,
+      hookRate: impression > 0 ? hookNum / impression : 0,
+      holdRate: impression > 0 ? holdNum / impression : 0,
+      ritenzione50: impression > 0 ? ret50Num / impression : 0,
+      tempoMedio: impression > 0 ? tempoNum / impression : 0,
+      rankQualita: best.rankQualita, rankEngagement: best.rankEngagement, rankConversione: best.rankConversione,
+    });
+  }
+  return out.sort((a, b) => b.spesa - a.spesa);
 }
