@@ -14,8 +14,9 @@ import {
   COMPARE_LABEL, DTS_OBJECTIVE, SALES_OBJECTIVES,
   AD_CFG,
 } from "./shared";
+import type { MetaValutazione, MetaVerdict, MetaStadio, MetaBenchmark } from "./shared";
 
-type SubTab = "riepilogo" | "obiettivo" | "piattaforma" | "campagne" | "search" | "creative";
+type SubTab = "riepilogo" | "obiettivo" | "piattaforma" | "campagne" | "search" | "creative" | "formati" | "pubblico";
 type CreativesWindow = "w7" | "w30" | "w90";
 
 const SUB: { key: SubTab; label: string }[] = [
@@ -25,6 +26,8 @@ const SUB: { key: SubTab; label: string }[] = [
   { key: "campagne", label: "Campagne" },
   { key: "search", label: "Search terms Google" },
   { key: "creative", label: "Creatività Meta" },
+  { key: "formati", label: "Cosa vince" },
+  { key: "pubblico", label: "Pubblico e placement" },
 ];
 
 export function AdvertisingTab({ data }: { data: GondolinaData }) {
@@ -56,6 +59,8 @@ export function AdvertisingTab({ data }: { data: GondolinaData }) {
       {sub === "campagne" && <CampagneView data={data} />}
       {sub === "search" && <SearchTermsView data={data} />}
       {sub === "creative" && <CreativitaMetaView data={data} />}
+      {sub === "formati" && <FormatiSoggettiView data={data} />}
+      {sub === "pubblico" && <PubblicoPlacementView data={data} />}
     </div>
   );
 }
@@ -94,6 +99,8 @@ function RiepilogoView({ data }: { data: GondolinaData }) {
         <KpiTile label="ROAS" value={num(roas, 2)} delta={prev && prev.spesa > 0 ? calcDelta(roas, prev.valore / prev.spesa) : null} info="Valore ÷ Spesa (tutte le piattaforme, tutti gli obiettivi)" />
         <KpiTile label="Costo/Conversione" value={agg.conv > 0 ? eur(cpConv) : "—"} info="Spesa ÷ Conversioni" />
       </div>
+
+      <FunnelStrip data={data} />
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: 16 }}>
         <Card>
@@ -532,243 +539,209 @@ function SortHdr({ th, thRight, label, col, sortBy, sortDir, onClick }: {
   );
 }
 
-// ═══ 2f Creatività Meta ═══════════════════════════════════════════
+// ═══ 2f Creatività Meta (dal motore: meta.valutazione + meta.benchmark) ═══
 
-type Verdict = "scala" | "fatigue" | "spegni" | "osserva" | "mantieni";
-
-const VERDICT_META: Record<Verdict, { label: string; color: string; bg: string; desc: string }> = {
-  scala: { label: "Scala", color: "#22c55e", bg: "rgba(34,197,94,0.15)", desc: "ROAS solido e pubblico non saturo: alza il budget" },
-  fatigue: { label: "Fatigue in arrivo", color: "#f59e0b", bg: "rgba(245,158,11,0.15)", desc: "Funziona ma inizia a saturare: prepara ricambio" },
-  spegni: { label: "Spegni", color: "#ef4444", bg: "rgba(239,68,68,0.15)", desc: "Spreco: costa e non produce" },
-  osserva: { label: "Osserva", color: "#94a3b8", bg: "rgba(148,163,184,0.18)", desc: "Dati insufficienti" },
-  mantieni: { label: "Mantieni", color: "#0ea5e9", bg: "rgba(14,165,233,0.15)", desc: "Nella norma" },
+const VERDICT_UI: Record<MetaVerdict, { color: string; bg: string; desc: string }> = {
+  "SCALA":        { color: POSITIVE,   bg: "rgba(34,197,94,0.18)",  desc: "Alza il budget: ROAS solido e pubblico non saturo" },
+  "PROMETTE":     { color: "#5FCF7A",  bg: "rgba(34,197,94,0.10)",  desc: "Segnali di traffico buoni, ROAS ancora in raccolta" },
+  "RINNOVA":      { color: "#f59e0b",  bg: "rgba(245,158,11,0.15)", desc: "Fatigue in arrivo: prepara ricambio" },
+  "MANTIENI":     { color: "#0ea5e9",  bg: "rgba(14,165,233,0.15)", desc: "Nella norma: tienila attiva" },
+  "OSSERVA":      { color: "#94a3b8",  bg: "rgba(148,163,184,0.18)",desc: "Serve più volume prima di giudicare" },
+  "DA RIVEDERE":  { color: "#ef4444",  bg: "rgba(239,68,68,0.10)",  desc: "Segnali contrastanti: guardarla e decidere" },
+  "SPEGNI":       { color: NEGATIVE,   bg: "rgba(239,68,68,0.20)",  desc: "Spende e non produce: chiudila" },
+  "IN RACCOLTA":  { color: "#94a3b8",  bg: "rgba(148,163,184,0.14)",desc: "Dati insufficienti per una decisione" },
 };
 
-type CreativeMetrics = {
-  name: string; stato: string; obiettivo: string;
-  spesa: number; imp: number; reach: number; freq: number;
-  click: number; ctr: number; cpm: number; cpc: number;
-  acquisti: number; valore: number; roas: number; lpv: number; atc: number;
+const STADIO_HINT: Record<MetaStadio, string> = {
+  "In raccolta": "Serve più spesa prima di poter leggere qualcosa",
+  "Attenzione":  "Hook e CTR sul link leggibili in 2-3 giorni",
+  "Intento":     "Add to cart e checkout leggibili in 4-7 giorni",
+  "Risultato":   "ROAS sulla singola creatività leggibile in 2-4 settimane",
 };
-
-function toMetrics(r: (string | number)[]): CreativeMetrics {
-  return {
-    name: String(r[0] ?? ""), stato: String(r[1] ?? ""), obiettivo: String(r[2] ?? ""),
-    spesa: Number(r[3]) || 0, imp: Number(r[4]) || 0, reach: Number(r[5]) || 0, freq: Number(r[6]) || 0,
-    click: Number(r[7]) || 0, ctr: Number(r[8]) || 0, cpm: Number(r[9]) || 0, cpc: Number(r[10]) || 0,
-    acquisti: Number(r[11]) || 0, valore: Number(r[12]) || 0, roas: Number(r[13]) || 0,
-    lpv: Number(r[14]) || 0, atc: Number(r[15]) || 0,
-  };
-}
-
-// Meta espone la stessa inserzione una volta per adset/campagna: aggreghiamo per nome
-// per non contare più volte la stessa creatività. Reach viene sommato (sovrastima
-// se una persona è raggiunta da più adset), ma è il compromesso standard di Meta stessa.
-function aggregateCreatives(rows: (string | number)[][]): CreativeMetrics[] {
-  const byName = new Map<string, CreativeMetrics[]>();
-  for (const r of rows) {
-    const m = toMetrics(r);
-    const key = m.name.toLowerCase().trim();
-    if (!key) continue;
-    const arr = byName.get(key);
-    if (arr) arr.push(m); else byName.set(key, [m]);
-  }
-  const out: CreativeMetrics[] = [];
-  for (const parts of byName.values()) {
-    if (parts.length === 1) { out.push(parts[0]); continue; }
-    // metriche additive
-    let spesa = 0, imp = 0, reach = 0, click = 0, acquisti = 0, valore = 0, lpv = 0, atc = 0;
-    // stato: ACTIVE vince su PAUSED che vince su CAMPAIGN_PAUSED
-    let stato = parts[0].stato;
-    // obiettivo: quello con più spesa
-    let bestObj = parts[0].obiettivo, bestObjSpend = -1;
-    for (const p of parts) {
-      spesa += p.spesa; imp += p.imp; reach += p.reach; click += p.click;
-      acquisti += p.acquisti; valore += p.valore; lpv += p.lpv; atc += p.atc;
-      if (p.stato === "ACTIVE") stato = "ACTIVE";
-      else if (p.stato === "PAUSED" && stato !== "ACTIVE") stato = "PAUSED";
-      if (p.spesa > bestObjSpend) { bestObjSpend = p.spesa; bestObj = p.obiettivo; }
-    }
-    out.push({
-      name: parts[0].name, stato, obiettivo: bestObj,
-      spesa, imp, reach, click, acquisti, valore, lpv, atc,
-      freq: reach > 0 ? imp / reach : 0,
-      ctr: imp > 0 ? (click / imp) * 100 : 0,
-      cpm: imp > 0 ? (spesa / imp) * 1000 : 0,
-      cpc: click > 0 ? spesa / click : 0,
-      roas: spesa > 0 ? valore / spesa : 0,
-    });
-  }
-  return out;
-}
-
-function computeVerdict(w30: CreativeMetrics, w7: CreativeMetrics | undefined): { verdict: Verdict; reason: string } {
-  const roas = w30.roas;
-  const spesa = w30.spesa;
-  const acquisti = w30.acquisti;
-  const freqW7 = w7?.freq ?? 0;
-  const ctrW7 = w7?.ctr ?? 0;
-  const ctrW30 = w30.ctr;
-  const ctrDropRatio = ctrW30 > 0 ? ctrW7 / ctrW30 : 1;
-  const isSales = SALES_OBJECTIVES.has(w30.obiettivo.toUpperCase());
-
-  if (spesa >= AD_CFG.MIN_SPEND && acquisti === 0 && isSales) return { verdict: "spegni", reason: `Spesa ${eur(spesa)} con 0 acquisti` };
-  if (roas > 0 && roas < 1 && isSales) return { verdict: "spegni", reason: `ROAS ${num(roas, 2)} sotto 1,0` };
-  if (spesa < AD_CFG.MIN_SPEND) return { verdict: "osserva", reason: `Spesa ${eur(spesa)} sotto ${eur(AD_CFG.MIN_SPEND)}: dati insufficienti` };
-
-  if (isSales && roas >= AD_CFG.ROAS_GOOD) {
-    if (freqW7 >= AD_CFG.FREQ_HIGH) return { verdict: "fatigue", reason: `Frequenza w7 ${num(freqW7, 2)} sopra ${num(AD_CFG.FREQ_HIGH, 1)}` };
-    if (w7 && ctrW30 > 0 && ctrDropRatio < 1 - AD_CFG.CTR_DROP) {
-      const drop = (1 - ctrDropRatio) * 100;
-      return { verdict: "fatigue", reason: `CTR w7 −${num(drop, 0)}% vs 30g` };
-    }
-    if (w7 && freqW7 < AD_CFG.FREQ_HIGH && ctrW7 >= ctrW30) {
-      return { verdict: "scala", reason: `ROAS ${num(roas, 2)} · freq w7 ${num(freqW7, 2)} · CTR stabile o crescente` };
-    }
-  }
-  return { verdict: "mantieni", reason: `ROAS ${num(roas, 2)} · nella norma` };
-}
 
 function CreativitaMetaView({ data }: { data: GondolinaData }) {
   const { palette } = useTheme();
-  const [scatterWindow, setScatterWindow] = useState<CreativesWindow>("w30");
-  const [filter, setFilter] = useState<"all" | Verdict>("all");
-  const [includePaused, setIncludePaused] = useState(false);
-
-  const w30rows = data.meta?.creatives?.w30?.rows ?? [];
-  const w7rows = data.meta?.creatives?.w7?.rows ?? [];
-
-  const enriched = useMemo(() => {
-    const w7agg = aggregateCreatives(w7rows);
-    const w7map = new Map<string, CreativeMetrics>();
-    for (const m of w7agg) w7map.set(m.name.toLowerCase().trim(), m);
-    return aggregateCreatives(w30rows).map((w30m) => {
-      const w7m = w7map.get(w30m.name.toLowerCase().trim());
-      const v = computeVerdict(w30m, w7m);
-      return { w30: w30m, w7: w7m, verdict: v.verdict, reason: v.reason };
-    }).sort((a, b) => b.w30.spesa - a.w30.spesa);
-  }, [w30rows, w7rows]);
+  const [filter, setFilter] = useState<"all" | "da-scalare" | "da-rinnovare" | "da-rivedere" | "da-spegnere">("all");
+  const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
+  const valutazione = data.meta?.valutazione ?? [];
+  const benchmark = data.meta?.benchmark;
 
   const counts = useMemo(() => {
-    const c: Record<Verdict, number> = { scala: 0, fatigue: 0, spegni: 0, osserva: 0, mantieni: 0 };
-    for (const r of enriched) {
-      if (!includePaused && r.w30.stato !== "ACTIVE") continue;
-      c[r.verdict]++;
+    const c = { scalare: 0, rinnovare: 0, rivedere: 0, spegnere: 0 };
+    for (const v of valutazione) {
+      if (v.verdetto === "SCALA" || v.verdetto === "PROMETTE") c.scalare++;
+      else if (v.verdetto === "RINNOVA") c.rinnovare++;
+      else if (v.verdetto === "DA RIVEDERE") c.rivedere++;
+      else if (v.verdetto === "SPEGNI") c.spegnere++;
     }
     return c;
-  }, [enriched, includePaused]);
+  }, [valutazione]);
 
-  const visible = useMemo(() => enriched.filter((r) => {
-    if (!includePaused && r.w30.stato !== "ACTIVE") return false;
-    if (filter !== "all" && r.verdict !== filter) return false;
+  const visible = useMemo(() => valutazione.filter((v) => {
+    if (filter === "all") return true;
+    if (filter === "da-scalare") return v.verdetto === "SCALA" || v.verdetto === "PROMETTE";
+    if (filter === "da-rinnovare") return v.verdetto === "RINNOVA";
+    if (filter === "da-rivedere") return v.verdetto === "DA RIVEDERE";
+    if (filter === "da-spegnere") return v.verdetto === "SPEGNI";
     return true;
-  }), [enriched, filter, includePaused]);
+  }), [valutazione, filter]);
 
-  const scatterSrc = data.meta?.creatives?.[scatterWindow];
+  if (valutazione.length === 0) {
+    return <Card><CardHeader title="Creatività Meta" /><EmptyState label="Nessuna valutazione nel payload." /></Card>;
+  }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {benchmark && !benchmark.affidabile && (
+        <div style={{
+          background: palette.divider, border: `1px solid ${palette.cardBorder}`,
+          padding: "0.7rem 1rem", borderRadius: 10, fontSize: 12, color: palette.textMuted,
+        }}>
+          <strong style={{ color: palette.text }}>Benchmark non affidabile:</strong> meno di 4 creatività con volume sufficiente ({benchmark.n}). Le soglie usate sono valori assoluti di riserva, non la mediana dell&apos;account.
+        </div>
+      )}
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
+        <FiltroCard label="Da scalare"    count={counts.scalare}   color={POSITIVE} active={filter === "da-scalare"}   onClick={() => setFilter(filter === "da-scalare" ? "all" : "da-scalare")} desc="SCALA + PROMETTE" />
+        <FiltroCard label="Da rinnovare"  count={counts.rinnovare} color="#f59e0b"  active={filter === "da-rinnovare"} onClick={() => setFilter(filter === "da-rinnovare" ? "all" : "da-rinnovare")} desc="Fatigue in arrivo" />
+        <FiltroCard label="Da rivedere"   count={counts.rivedere}  color="#ef4444"  active={filter === "da-rivedere"}  onClick={() => setFilter(filter === "da-rivedere" ? "all" : "da-rivedere")} desc="Segnali contrastanti" />
+        <FiltroCard label="Da spegnere"   count={counts.spegnere}  color={NEGATIVE} active={filter === "da-spegnere"}  onClick={() => setFilter(filter === "da-spegnere" ? "all" : "da-spegnere")} desc="Costa e non produce" />
+      </div>
+
       <Card>
-        <CardHeader title="Matrice creatività · ROAS × Frequenza"
-          right={<div style={{ display: "flex", gap: 6 }}>
-            <Pill active={scatterWindow === "w7"} onClick={() => setScatterWindow("w7")}>7g</Pill>
-            <Pill active={scatterWindow === "w30"} onClick={() => setScatterWindow("w30")}>30g</Pill>
-            <Pill active={scatterWindow === "w90"} onClick={() => setScatterWindow("w90")}>90g</Pill>
-          </div>}
-        />
-        {!scatterSrc || scatterSrc.rows.length === 0 ? <EmptyState /> : <RoasScatter rows={aggregateCreatives(scatterSrc.rows)} />}
+        <CardHeader title={`Creatività · ${visible.length} inserzioni`}
+          right={<div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            {filter !== "all" && <Pill active={false} onClick={() => setFilter("all")}>× rimuovi filtro</Pill>}
+          </div>} />
+        {visible.length === 0 ? <EmptyState label="Nessuna creatività coi filtri" /> : (
+          <ValutazioneTable rows={visible} expandedIdx={expandedIdx} setExpandedIdx={setExpandedIdx} />
+        )}
       </Card>
 
       <Card>
-        <CardHeader title="Verdetti operativi"
-          right={<span style={{ fontSize: 11, color: palette.textDim }}>
-            soglie ROAS ≥ {num(AD_CFG.ROAS_GOOD, 1)} · freq ≥ {num(AD_CFG.FREQ_HIGH, 1)} · spesa min {eur(AD_CFG.MIN_SPEND)}
-          </span>}
-        />
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10, marginBottom: 14 }}>
-          <VerdictCard verdict="scala" label="Da scalare" count={counts.scala} active={filter === "scala"} onClick={() => setFilter(filter === "scala" ? "all" : "scala")} />
-          <VerdictCard verdict="fatigue" label="Fatigue in arrivo" count={counts.fatigue} active={filter === "fatigue"} onClick={() => setFilter(filter === "fatigue" ? "all" : "fatigue")} />
-          <VerdictCard verdict="spegni" label="Da spegnere" count={counts.spegni} active={filter === "spegni"} onClick={() => setFilter(filter === "spegni" ? "all" : "spegni")} />
-        </div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 12, fontSize: 12 }}>
-          <span style={{ color: palette.textDim, fontWeight: 600 }}>Filtra:</span>
-          <Pill active={filter === "all"} onClick={() => setFilter("all")}>Tutti</Pill>
-          <Pill active={filter === "scala"} onClick={() => setFilter("scala")}>Scala</Pill>
-          <Pill active={filter === "fatigue"} onClick={() => setFilter("fatigue")}>Fatigue</Pill>
-          <Pill active={filter === "spegni"} onClick={() => setFilter("spegni")}>Spegni</Pill>
-          <Pill active={filter === "mantieni"} onClick={() => setFilter("mantieni")}>Mantieni</Pill>
-          <Pill active={filter === "osserva"} onClick={() => setFilter("osserva")}>Osserva</Pill>
-          <div style={{ flex: 1 }} />
-          <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
-            <input type="checkbox" checked={includePaused} onChange={(e) => setIncludePaused(e.target.checked)} style={{ accentColor: GOLD }} />
-            <span style={{ color: palette.textMuted }}>Includi PAUSED</span>
-          </label>
-        </div>
-        {visible.length === 0 ? <EmptyState label="Nessuna creatività coi filtri" /> : <VerdictTable rows={visible} />}
+        <CardHeader title="Dove si rompe · Hook rate × CTR sul link"
+          right={benchmark?.affidabile ? <span style={{ fontSize: 11, color: palette.textDim }}>linee: mediane dell&apos;account</span> : null} />
+        {valutazione.length === 0 ? <EmptyState /> : <HookCtrScatter rows={valutazione} benchmark={benchmark} />}
       </Card>
     </div>
   );
 }
 
-function VerdictCard({ verdict, label, count, active, onClick }: {
-  verdict: Verdict; label: string; count: number; active: boolean; onClick: () => void;
+function FiltroCard({ label, count, color, active, onClick, desc }: {
+  label: string; count: number; color: string; active: boolean; onClick: () => void; desc: string;
 }) {
   const { palette } = useTheme();
-  const m = VERDICT_META[verdict];
   return (
     <button onClick={onClick} style={{
-      textAlign: "left", cursor: "pointer",
-      padding: "0.9rem 1rem", borderRadius: 12,
-      border: `1px solid ${active ? m.color : palette.cardBorder}`,
-      background: active ? m.bg : palette.divider,
+      textAlign: "left", cursor: "pointer", padding: "0.9rem 1rem", borderRadius: 12,
+      border: `1px solid ${active ? color : palette.cardBorder}`,
+      background: active ? `${color}18` : palette.divider,
       color: palette.text, fontFamily: "inherit",
     }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-        <span style={{ width: 8, height: 8, borderRadius: "50%", background: m.color }} />
-        <span style={{ fontSize: 11, fontWeight: 700, color: m.color, letterSpacing: "0.06em", textTransform: "uppercase" }}>{label}</span>
+        <span style={{ width: 8, height: 8, borderRadius: "50%", background: color }} />
+        <span style={{ fontSize: 11, fontWeight: 700, color, letterSpacing: "0.06em", textTransform: "uppercase" }}>{label}</span>
       </div>
       <p style={{ margin: 0, fontSize: 26, fontWeight: 700, color: palette.text, letterSpacing: "-0.02em", fontVariantNumeric: "tabular-nums" }}>{integer(count)}</p>
-      <p style={{ margin: "4px 0 0", fontSize: 11, color: palette.textDim }}>{m.desc}</p>
+      <p style={{ margin: "4px 0 0", fontSize: 11, color: palette.textDim }}>{desc}</p>
     </button>
   );
 }
 
-function VerdictTable({ rows }: { rows: { w30: CreativeMetrics; w7: CreativeMetrics | undefined; verdict: Verdict; reason: string }[] }) {
+function VerdictBadge({ verdict }: { verdict: MetaVerdict }) {
+  const m = VERDICT_UI[verdict];
+  return (
+    <span title={m.desc} style={{
+      padding: "2px 9px", borderRadius: 20, background: m.bg, color: m.color,
+      fontSize: 10, fontWeight: 700, letterSpacing: "0.05em", cursor: "help",
+      border: `1px solid ${m.color}45`, whiteSpace: "nowrap",
+    }}>{verdict}</span>
+  );
+}
+
+function IndiceBar({ indice }: { indice: number }) {
+  const { palette } = useTheme();
+  const clamped = Math.max(0, Math.min(100, indice));
+  const color = clamped >= 65 ? POSITIVE : clamped >= 35 ? "#0ea5e9" : NEGATIVE;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 100 }}>
+      <div style={{ position: "relative", width: "100%", height: 6, background: palette.divider, borderRadius: 3, overflow: "hidden" }}>
+        <div style={{ width: `${clamped}%`, height: "100%", background: color, transition: "width 0.3s" }} />
+        {/* tacca fissa a 50 = mediana account */}
+        <div style={{ position: "absolute", left: "50%", top: -2, width: 1, height: 10, background: palette.textDim }} />
+      </div>
+      <span style={{ fontSize: 10, fontWeight: 600, color: palette.textMuted, fontVariantNumeric: "tabular-nums" }}>{integer(clamped)}</span>
+    </div>
+  );
+}
+
+function ValutazioneTable({ rows, expandedIdx, setExpandedIdx }: {
+  rows: MetaValutazione[]; expandedIdx: number | null; setExpandedIdx: (i: number | null) => void;
+}) {
   const { palette } = useTheme();
   const ts = tableStyles(palette);
   return (
     <div style={{ overflowX: "auto" }}>
       <table style={ts.table}>
-        <thead>
-          <tr>
-            <th style={ts.th}>Creatività</th><th style={ts.th}>Obiettivo</th><th style={ts.th}>Stato</th><th style={ts.th}>Verdetto</th>
-            <th style={{ ...ts.th, ...ts.thRight }}>Spesa 30g</th><th style={{ ...ts.th, ...ts.thRight }}>Freq 7g</th>
-            <th style={{ ...ts.th, ...ts.thRight }}>CTR 30g</th><th style={{ ...ts.th, ...ts.thRight }}>Acquisti</th>
-            <th style={{ ...ts.th, ...ts.thRight }}>ROAS</th>
-          </tr>
-        </thead>
+        <thead><tr>
+          <th style={ts.th}>Creatività</th>
+          <th style={ts.th}>Formato</th>
+          <th style={ts.th}>Soggetto</th>
+          <th style={ts.th}>Stadio</th>
+          <th style={{ ...ts.th, minWidth: 110 }}>Indice</th>
+          <th style={ts.th}>Verdetto</th>
+          <th style={{ ...ts.th, ...ts.thRight }}>Spesa</th>
+          <th style={{ ...ts.th, ...ts.thRight }}>Hook</th>
+          <th style={{ ...ts.th, ...ts.thRight }}>CTR link</th>
+          <th style={{ ...ts.th, ...ts.thRight }}>Costo/ATC</th>
+          <th style={{ ...ts.th, ...ts.thRight }}>Acquisti</th>
+          <th style={{ ...ts.th, ...ts.thRight }}>ROAS</th>
+        </tr></thead>
         <tbody>
-          {rows.map((r, i) => {
-            const m = VERDICT_META[r.verdict];
-            const active = r.w30.stato === "ACTIVE";
+          {rows.map((v, i) => {
+            const isOpen = expandedIdx === i;
             return (
-              <tr key={i}>
-                <td style={{ ...ts.tdBase, maxWidth: 240, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: palette.text, fontWeight: 500 }} title={r.w30.name}>{r.w30.name}</td>
-                <td style={{ ...ts.tdBase, fontSize: 10 }}>
-                  <span style={{ padding: "1px 7px", borderRadius: 20, background: palette.divider, color: palette.textMuted, fontWeight: 600 }}>{r.w30.obiettivo}</span>
-                </td>
-                <td style={ts.tdBase}>
-                  <span style={{ padding: "1px 8px", borderRadius: 20, background: active ? "rgba(34,197,94,0.15)" : "rgba(148,163,184,0.20)", color: active ? "#22c55e" : palette.textDim, fontSize: 10, fontWeight: 700, letterSpacing: "0.05em" }}>{r.w30.stato}</span>
-                </td>
-                <td style={ts.tdBase}>
-                  <span title={r.reason} style={{ padding: "2px 10px", borderRadius: 20, background: m.bg, color: m.color, fontSize: 10, fontWeight: 700, textTransform: "uppercase", cursor: "help", border: `1px solid ${m.color}30` }}>{m.label}</span>
-                </td>
-                <td style={{ ...ts.tdBase, ...ts.tdRight }}>{eur(r.w30.spesa)}</td>
-                <td style={{ ...ts.tdBase, ...ts.tdRight, color: r.w7 && r.w7.freq >= AD_CFG.FREQ_HIGH ? "#f59e0b" : ts.tdBase.color, fontWeight: 500 }}>{r.w7 ? num(r.w7.freq, 2) : "—"}</td>
-                <td style={{ ...ts.tdBase, ...ts.tdRight }}>{pctStr(r.w30.ctr * 100, 2)}</td>
-                <td style={{ ...ts.tdBase, ...ts.tdRight, fontWeight: r.w30.acquisti > 0 ? 600 : 400 }}>{integer(r.w30.acquisti)}</td>
-                <td style={{ ...ts.tdBase, ...ts.tdRight, color: r.w30.roas >= AD_CFG.ROAS_GOOD ? POSITIVE : r.w30.roas > 0 && r.w30.roas < 1 ? NEGATIVE : ts.tdBase.color, fontWeight: 700 }}>{num(r.w30.roas, 2)}</td>
-              </tr>
+              <React.Fragment key={i}>
+                <tr style={{ cursor: "pointer", background: isOpen ? palette.divider : undefined }}
+                    onClick={() => setExpandedIdx(isOpen ? null : i)}>
+                  <td style={{ ...ts.tdBase, maxWidth: 220, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: palette.text, fontWeight: 500 }} title={v.nome}>
+                    <span style={{ marginRight: 6, color: palette.textFaint, fontSize: 10 }}>{isOpen ? "▾" : "▸"}</span>{v.nome}
+                  </td>
+                  <td style={{ ...ts.tdBase, fontSize: 11, color: palette.textMuted }}>{v.formato}</td>
+                  <td style={{ ...ts.tdBase, fontSize: 11, color: palette.textMuted }}>{v.soggetto}</td>
+                  <td style={{ ...ts.tdBase, fontSize: 10 }}>
+                    <span title={STADIO_HINT[v.stadio] ?? ""} style={{ color: palette.textDim, cursor: "help" }}>{v.stadio}</span>
+                  </td>
+                  <td style={ts.tdBase}><IndiceBar indice={v.indice} /></td>
+                  <td style={ts.tdBase}><VerdictBadge verdict={v.verdetto} /></td>
+                  <td style={{ ...ts.tdBase, ...ts.tdRight }}>{eur(v.spesa)}</td>
+                  <td style={{ ...ts.tdBase, ...ts.tdRight }}>{pctStr(v.hook * 100, 1)}</td>
+                  <td style={{ ...ts.tdBase, ...ts.tdRight }}>{pctStr(v.ctr_link * 100, 2)}</td>
+                  <td style={{ ...ts.tdBase, ...ts.tdRight }}>{v.atc > 0 ? eur(v.costo_atc) : "—"}</td>
+                  <td style={{ ...ts.tdBase, ...ts.tdRight, fontWeight: v.acquisti > 0 ? 600 : 400 }}>{integer(v.acquisti)}</td>
+                  <td style={{ ...ts.tdBase, ...ts.tdRight, color: v.roas >= AD_CFG.ROAS_GOOD ? POSITIVE : v.roas > 0 && v.roas < 1 ? NEGATIVE : ts.tdBase.color, fontWeight: 700 }}>{v.roas > 0 ? num(v.roas, 2) : "—"}</td>
+                </tr>
+                {isOpen && (
+                  <tr style={{ background: palette.divider }}>
+                    <td colSpan={12} style={{ padding: "1rem 1.25rem" }}>
+                      <div style={{
+                        padding: "0.8rem 1rem", background: palette.cardBg, border: `1px solid ${palette.cardBorder}`,
+                        borderLeft: `3px solid ${VERDICT_UI[v.verdetto].color}`, borderRadius: 8, marginBottom: 12,
+                      }}>
+                        <p style={{ margin: 0, fontSize: 13, color: palette.text, fontWeight: 500 }}>{v.azione}</p>
+                      </div>
+                      {v.segnali.length > 0 && (
+                        <div style={{ marginBottom: 4 }}>
+                          <p style={{ margin: "0 0 6px", fontSize: 10, fontWeight: 700, color: palette.textDim, textTransform: "uppercase", letterSpacing: "0.05em" }}>Segnali</p>
+                          <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: palette.textMuted, lineHeight: 1.6 }}>
+                            {v.segnali.map((s, si) => <li key={si}>{s}</li>)}
+                          </ul>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                )}
+              </React.Fragment>
             );
           })}
         </tbody>
@@ -777,35 +750,37 @@ function VerdictTable({ rows }: { rows: { w30: CreativeMetrics; w7: CreativeMetr
   );
 }
 
-function RoasScatter({ rows }: { rows: CreativeMetrics[] }) {
+function HookCtrScatter({ rows, benchmark }: { rows: MetaValutazione[]; benchmark: MetaBenchmark | undefined }) {
   const { palette } = useTheme();
-  const points = rows.filter((r) => r.freq > 0 && r.roas >= 0 && SALES_OBJECTIVES.has(r.obiettivo.toUpperCase()));
-  if (points.length === 0) return <EmptyState label="Nessuna creatività con obiettivo vendite" />;
-  const maxFreq = Math.max(AD_CFG.FREQ_HIGH * 1.6, ...points.map((p) => p.freq));
-  const maxRoas = Math.max(AD_CFG.ROAS_GOOD * 1.6, ...points.map((p) => p.roas));
+  const points = rows.filter((r) => r.hook > 0 || r.ctr_link > 0);
+  if (points.length === 0) return <EmptyState label="Dati insufficienti per lo scatter" />;
+  const maxHook = Math.max(...points.map((p) => p.hook), 0.5);
+  const maxCtr = Math.max(...points.map((p) => p.ctr_link), 0.05);
   const maxSpesa = Math.max(1, ...points.map((p) => p.spesa));
+  const bx = benchmark?.affidabile ? benchmark.hook : null;
+  const by = benchmark?.affidabile ? benchmark.ctr_link : null;
   return (
     <div style={{ width: "100%", height: 380 }}>
       <ResponsiveContainer>
         <ScatterChart margin={{ top: 20, right: 24, bottom: 40, left: 24 }}>
           <CartesianGrid stroke={palette.grid} />
-          <ReferenceArea x1={0} x2={AD_CFG.FREQ_HIGH} y1={AD_CFG.ROAS_GOOD} y2={maxRoas} fill="#22c55e" fillOpacity={0.06} strokeOpacity={0} />
-          <ReferenceArea x1={AD_CFG.FREQ_HIGH} x2={maxFreq} y1={AD_CFG.ROAS_GOOD} y2={maxRoas} fill="#0ea5e9" fillOpacity={0.05} strokeOpacity={0} />
-          <ReferenceArea x1={0} x2={AD_CFG.FREQ_HIGH} y1={0} y2={AD_CFG.ROAS_GOOD} fill={GOLD} fillOpacity={0.05} strokeOpacity={0} />
-          <ReferenceArea x1={AD_CFG.FREQ_HIGH} x2={maxFreq} y1={0} y2={AD_CFG.ROAS_GOOD} fill="#ef4444" fillOpacity={0.08} strokeOpacity={0} />
-          <XAxis type="number" dataKey="freq" name="Frequenza" domain={[0, maxFreq]}
+          <XAxis type="number" dataKey="hook" name="Hook" domain={[0, maxHook * 1.1]}
             tick={{ fill: palette.axis, fontSize: 11 }} axisLine={{ stroke: palette.cardBorder }} tickLine={false}
-            tickFormatter={(v) => num(Number(v), 1)}
-            label={{ value: "Frequenza →", position: "insideBottom", offset: -8, fill: palette.textDim, fontSize: 11 }} />
-          <YAxis type="number" dataKey="roas" name="ROAS" domain={[0, maxRoas]}
+            tickFormatter={(v) => pctStr(Number(v) * 100, 0)}
+            label={{ value: "Hook rate →", position: "insideBottom", offset: -8, fill: palette.textDim, fontSize: 11 }} />
+          <YAxis type="number" dataKey="ctr_link" name="CTR link" domain={[0, maxCtr * 1.1]}
             tick={{ fill: palette.axis, fontSize: 11 }} axisLine={{ stroke: palette.cardBorder }} tickLine={false}
-            tickFormatter={(v) => num(Number(v), 1)}
-            label={{ value: "ROAS ↑", angle: -90, position: "insideLeft", fill: palette.textDim, fontSize: 11 }} />
+            tickFormatter={(v) => pctStr(Number(v) * 100, 1)}
+            label={{ value: "CTR sul link ↑", angle: -90, position: "insideLeft", fill: palette.textDim, fontSize: 11 }} />
           <ZAxis type="number" dataKey="spesa" range={[40, Math.max(600, maxSpesa)]} />
-          <ReferenceLine y={AD_CFG.ROAS_GOOD} stroke={palette.textFaint} strokeDasharray="4 4" label={{ value: `ROAS ${num(AD_CFG.ROAS_GOOD, 1)}`, fill: palette.textDim, fontSize: 10, position: "insideBottomRight" }} />
-          <ReferenceLine x={AD_CFG.FREQ_HIGH} stroke={palette.textFaint} strokeDasharray="4 4" label={{ value: `Freq ${num(AD_CFG.FREQ_HIGH, 1)}`, fill: palette.textDim, fontSize: 10, position: "insideTopLeft" }} />
-          <Tooltip cursor={{ strokeDasharray: "3 3", stroke: palette.textFaint }} content={<ScatterTooltip />} />
-          <Scatter data={points} fill={ACCENT} fillOpacity={0.7} stroke={ACCENT} strokeWidth={1.5} />
+          {bx != null && <ReferenceLine x={bx} stroke={palette.textFaint} strokeDasharray="4 4" label={{ value: `Hook mediana ${pctStr(bx * 100, 0)}`, fill: palette.textDim, fontSize: 10, position: "insideTopLeft" }} />}
+          {by != null && <ReferenceLine y={by} stroke={palette.textFaint} strokeDasharray="4 4" label={{ value: `CTR mediana ${pctStr(by * 100, 1)}`, fill: palette.textDim, fontSize: 10, position: "insideBottomRight" }} />}
+          <Tooltip cursor={{ strokeDasharray: "3 3", stroke: palette.textFaint }} content={<HookScatterTooltip />} />
+          <Scatter data={points.filter((p) => p.verdetto === "SCALA" || p.verdetto === "PROMETTE")} fill={POSITIVE} fillOpacity={0.75} name="Scala/Promette" />
+          <Scatter data={points.filter((p) => p.verdetto === "RINNOVA")} fill="#f59e0b" fillOpacity={0.75} name="Rinnova" />
+          <Scatter data={points.filter((p) => p.verdetto === "MANTIENI")} fill="#0ea5e9" fillOpacity={0.75} name="Mantieni" />
+          <Scatter data={points.filter((p) => p.verdetto === "SPEGNI" || p.verdetto === "DA RIVEDERE")} fill={NEGATIVE} fillOpacity={0.75} name="Spegni/Rivedi" />
+          <Scatter data={points.filter((p) => p.verdetto === "OSSERVA" || p.verdetto === "IN RACCOLTA")} fill="#94a3b8" fillOpacity={0.6} name="Osserva/Raccolta" />
         </ScatterChart>
       </ResponsiveContainer>
     </div>
@@ -813,23 +788,26 @@ function RoasScatter({ rows }: { rows: CreativeMetrics[] }) {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function ScatterTooltip({ active, payload }: any) {
+function HookScatterTooltip({ active, payload }: any) {
   const { palette } = useTheme();
   if (!active || !payload?.length) return null;
-  const p = payload[0].payload as CreativeMetrics;
+  const p = payload[0].payload as MetaValutazione;
   return (
     <div style={{
       background: palette.tooltipBg, border: `1px solid ${palette.tooltipBorder}`,
-      borderRadius: 8, padding: "0.7rem 0.85rem", fontSize: 12, color: palette.text, maxWidth: 260,
+      borderRadius: 8, padding: "0.7rem 0.85rem", fontSize: 12, color: palette.text, maxWidth: 280,
       boxShadow: "0 4px 20px rgba(0,0,0,0.35)",
     }}>
-      <p style={{ margin: 0, fontWeight: 700, marginBottom: 4, wordBreak: "break-word" }}>{p.name}</p>
-      <p style={{ margin: 0, fontSize: 10, color: p.stato === "ACTIVE" ? "#22c55e" : palette.textDim, textTransform: "uppercase" }}>{p.stato}</p>
-      <div style={{ marginTop: 6, display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2px 12px", fontVariantNumeric: "tabular-nums" }}>
-        <span style={{ color: palette.textDim }}>ROAS</span><span style={{ textAlign: "right" }}>{num(p.roas, 2)}</span>
-        <span style={{ color: palette.textDim }}>Frequenza</span><span style={{ textAlign: "right" }}>{num(p.freq, 2)}</span>
+      <p style={{ margin: 0, fontWeight: 700, marginBottom: 4, wordBreak: "break-word" }}>{p.nome}</p>
+      <div style={{ display: "flex", gap: 6, marginBottom: 6, alignItems: "center" }}>
+        <VerdictBadge verdict={p.verdetto} />
+        <span style={{ fontSize: 10, color: palette.textDim }}>{p.stadio}</span>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2px 12px", fontVariantNumeric: "tabular-nums" }}>
+        <span style={{ color: palette.textDim }}>Hook</span><span style={{ textAlign: "right" }}>{pctStr(p.hook * 100, 1)}</span>
+        <span style={{ color: palette.textDim }}>CTR link</span><span style={{ textAlign: "right" }}>{pctStr(p.ctr_link * 100, 2)}</span>
         <span style={{ color: palette.textDim }}>Spesa</span><span style={{ textAlign: "right" }}>{eur(p.spesa)}</span>
-        <span style={{ color: palette.textDim }}>Acquisti</span><span style={{ textAlign: "right" }}>{integer(p.acquisti)}</span>
+        <span style={{ color: palette.textDim }}>ROAS</span><span style={{ textAlign: "right" }}>{num(p.roas, 2)}</span>
       </div>
     </div>
   );
@@ -922,6 +900,233 @@ function DonutFromMap({ map, formatter }: { map: Map<string, number>; formatter?
           );
         })}
       </div>
+    </div>
+  );
+}
+
+// ═══ Funnel strip (2a) ═══════════════════════════════════════════
+
+function FunnelStrip({ data }: { data: GondolinaData }) {
+  const { palette } = useTheme();
+  const s = data.summary?.w30;
+  if (!s) return null;
+  const steps = [
+    { label: "Add to Cart",       val: s.add_to_cart, rate: s.tasso_carrello_pct,  color: ACCENT },
+    { label: "Initiate Checkout", val: s.checkout,     rate: s.tasso_checkout_pct,  color: GOLD },
+    { label: "Purchase",          val: s.transazioni_ga4, rate: s.tasso_acquisto_pct, color: POSITIVE },
+  ];
+  const maxV = Math.max(...steps.map((x) => x.val), 1);
+  return (
+    <Card>
+      <CardHeader title="Funnel · 30 giorni (da summary GA4)"
+        right={<span style={{ fontSize: 11, color: palette.textDim }}>ATC · Checkout · Purchase, con tasso di passaggio</span>} />
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {steps.map((st, i) => (
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <span style={{ minWidth: 160, fontSize: 12, color: palette.text, fontWeight: 500 }}>{st.label}</span>
+            <div style={{ flex: 1, height: 22, background: palette.divider, borderRadius: 4, overflow: "hidden", position: "relative" }}>
+              <div style={{ width: `${(st.val / maxV) * 100}%`, height: "100%", background: st.color, transition: "width 0.3s" }} />
+              <span style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)", fontSize: 11, color: palette.text, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{integer(st.val)}</span>
+            </div>
+            <span style={{ minWidth: 100, textAlign: "right", fontSize: 11, color: palette.textMuted, fontVariantNumeric: "tabular-nums" }}>
+              {pctStr(st.rate, 2)} pass.
+            </span>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+// ═══ 2g Cosa vince: formato e soggetto ══════════════════════════
+
+function FormatiSoggettiView({ data }: { data: GondolinaData }) {
+  const { palette } = useTheme();
+  const head = data.meta?.agg_head ?? ["valore", "spesa", "impression", "click_link", "ctr_link", "atc", "costo_atc", "acquisti", "valore_acq", "roas", "hook_medio"];
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))", gap: 16 }}>
+      <Card>
+        <CardHeader title="Per formato · 30 giorni"
+          right={<span style={{ fontSize: 11, color: palette.textDim }}>convenzione naming: Formato - Soggetto - Numero</span>} />
+        <AggTable rows={data.meta?.per_formato ?? []} head={head} palette={palette} />
+      </Card>
+      <Card>
+        <CardHeader title="Per soggetto · 30 giorni" />
+        <AggTable rows={data.meta?.per_soggetto ?? []} head={head} palette={palette} />
+      </Card>
+    </div>
+  );
+}
+
+function AggTable({ rows, head, palette }: { rows: (string | number | null)[][]; head: string[]; palette: import("./shared").Palette }) {
+  const ts = tableStyles(palette);
+  if (rows.length === 0) return <EmptyState label="Nessun dato" />;
+  // sort by spesa desc (col 1)
+  const sorted = [...rows].sort((a, b) => (Number(b[1]) || 0) - (Number(a[1]) || 0));
+  const LABELS: Record<string, string> = {
+    valore: "Nome", spesa: "Spesa", impression: "Imp.", click_link: "Click link",
+    ctr_link: "CTR link", atc: "ATC", costo_atc: "Costo/ATC", acquisti: "Acquisti",
+    valore_acq: "Valore", roas: "ROAS", hook_medio: "Hook medio",
+  };
+  const fmt = (col: string, v: unknown): { text: string; color?: string; bold?: boolean } => {
+    const n = Number(v ?? 0);
+    if (v == null || v === "") return { text: "—" };
+    if (col === "valore") return { text: String(v), bold: true };
+    if (col === "spesa" || col === "costo_atc" || col === "valore_acq") return { text: eur(n), bold: col === "spesa" };
+    if (col === "impression" || col === "click_link" || col === "atc" || col === "acquisti") return { text: integer(n) };
+    if (col === "ctr_link" || col === "hook_medio") return { text: pctStr(n, 2) };
+    if (col === "roas") return { text: num(n, 2), color: n >= AD_CFG.ROAS_GOOD ? POSITIVE : n > 0 && n < 1 ? NEGATIVE : undefined, bold: true };
+    return { text: String(v) };
+  };
+  return (
+    <div style={{ overflowX: "auto" }}>
+      <table style={ts.table}>
+        <thead><tr>
+          {head.map((c, i) => (
+            <th key={c} style={{ ...ts.th, ...(i === 0 ? {} : ts.thRight) }}>{LABELS[c] ?? c}</th>
+          ))}
+        </tr></thead>
+        <tbody>
+          {sorted.map((r, i) => (
+            <tr key={i}>
+              {head.map((c, ci) => {
+                const val = r[ci];
+                const f = fmt(c, val);
+                const isFirst = ci === 0;
+                return (
+                  <td key={c} style={{
+                    ...ts.tdBase, ...(isFirst ? {} : ts.tdRight),
+                    color: f.color ?? (isFirst ? palette.text : ts.tdBase.color),
+                    fontWeight: f.bold ? 600 : 400,
+                  }}>{f.text}</td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// ═══ 2h Pubblico, paesi, placement ═══════════════════════════════
+
+function PubblicoPlacementView({ data }: { data: GondolinaData }) {
+  const { palette } = useTheme();
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <Card>
+        <CardHeader title="Adsets Meta · 30 giorni"
+          right={<span style={{ fontSize: 11, color: palette.textDim }}>ambra: spesa sopra mediana e 0 acquisti · verde: costo/ATC sotto mediana</span>} />
+        <BreakTable rows={data.meta?.adsets_w30 ?? []} head={data.meta?.adset_head ?? []} palette={palette} highlight />
+      </Card>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))", gap: 16 }}>
+        <Card>
+          <CardHeader title="Paesi · 30 giorni" />
+          <BreakTable rows={data.meta?.paesi_w30 ?? []} head={data.meta?.break_head ?? []} palette={palette} highlight />
+        </Card>
+        <Card>
+          <CardHeader title="Placement · 30 giorni" />
+          <BreakTable rows={data.meta?.placement_w30 ?? []} head={data.meta?.break_head ?? []} palette={palette} highlight />
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function BreakTable({ rows, head, palette, highlight }: {
+  rows: (string | number | null)[][]; head: string[];
+  palette: import("./shared").Palette; highlight?: boolean;
+}) {
+  const ts = tableStyles(palette);
+  if (rows.length === 0) return <EmptyState label="Nessun dato" />;
+  // sort per spesa (colonna che dopo il/i nome contiene un numero grosso — di solito col 1 o 2)
+  // Individuiamo l'indice colonna 'spesa'/ 'costo' oppure ripieghiamo su col 1
+  const spesaIdx = (() => {
+    for (let i = 0; i < head.length; i++) {
+      const h = String(head[i]).toLowerCase();
+      if (h.includes("spesa") || h === "costo") return i;
+    }
+    return head.length > 2 ? 2 : 1;
+  })();
+  const atcIdx = head.findIndex((h) => String(h).toLowerCase() === "atc");
+  const acqIdx = head.findIndex((h) => String(h).toLowerCase().includes("acquisti"));
+  const cpaIdx = head.findIndex((h) => String(h).toLowerCase().includes("costo_atc") || String(h).toLowerCase().includes("costo/atc"));
+  const nameCols = head.slice(0, spesaIdx);
+  const numCols = head.slice(spesaIdx);
+
+  // mediane per highlighting
+  const spesaVals = rows.map((r) => Number(r[spesaIdx]) || 0).filter((n) => n > 0).sort((a, b) => a - b);
+  const cpaVals = cpaIdx >= 0 ? rows.map((r) => Number(r[cpaIdx]) || 0).filter((n) => n > 0).sort((a, b) => a - b) : [];
+  const median = (arr: number[]) => arr.length === 0 ? 0 : arr.length % 2 === 0 ? (arr[arr.length / 2 - 1] + arr[arr.length / 2]) / 2 : arr[Math.floor(arr.length / 2)];
+  const spesaMed = median(spesaVals);
+  const cpaMed = median(cpaVals);
+
+  const sorted = [...rows].sort((a, b) => (Number(b[spesaIdx]) || 0) - (Number(a[spesaIdx]) || 0));
+
+  const LABELS: Record<string, string> = {
+    adset: "Adset", campaign: "Campagna", spesa: "Spesa", impression: "Imp.",
+    ctr_link: "CTR link", click_link: "Click link", atc: "ATC",
+    costo_atc: "Costo/ATC", acquisti: "Acquisti", valore_acq: "Valore",
+    roas: "ROAS", hook_medio: "Hook",
+  };
+  const fmt = (col: string, v: unknown): string => {
+    const n = Number(v ?? 0);
+    if (v == null || v === "") return "—";
+    if (col.includes("spesa") || col === "costo" || col.includes("costo") || col === "valore_acq") return eur(n);
+    if (col === "roas") return num(n, 2);
+    if (col.includes("ctr") || col === "hook_medio") return pctStr(n, 2);
+    if (typeof v === "number") return integer(n);
+    return String(v);
+  };
+
+  return (
+    <div style={{ overflowX: "auto" }}>
+      <table style={ts.table}>
+        <thead><tr>
+          {nameCols.map((c) => <th key={c} style={ts.th}>{LABELS[c] ?? c}</th>)}
+          {numCols.map((c) => <th key={c} style={{ ...ts.th, ...ts.thRight }}>{LABELS[c] ?? c}</th>)}
+        </tr></thead>
+        <tbody>
+          {sorted.map((r, i) => {
+            const spesa = Number(r[spesaIdx]) || 0;
+            const atc = atcIdx >= 0 ? Number(r[atcIdx]) || 0 : 0;
+            const acq = acqIdx >= 0 ? Number(r[acqIdx]) || 0 : 0;
+            const cpa = cpaIdx >= 0 ? Number(r[cpaIdx]) || 0 : 0;
+            const isProblem = highlight && spesa > spesaMed && acq === 0;
+            const isGood = highlight && cpaIdx >= 0 && cpa > 0 && cpa < cpaMed;
+            const rowBg = isProblem ? "rgba(245,158,11,0.10)" : isGood ? "rgba(34,197,94,0.08)" : undefined;
+            return (
+              <tr key={i} style={{ background: rowBg }}>
+                {nameCols.map((c, ci) => (
+                  <td key={c} style={{
+                    ...ts.tdBase, color: palette.text, fontWeight: ci === 0 ? 500 : 400,
+                    maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                    fontFamily: ci === 0 ? "'JetBrains Mono', ui-monospace, monospace" : "inherit",
+                    fontSize: 11,
+                  }} title={String(r[ci] ?? "")}>{String(r[ci] ?? "—")}</td>
+                ))}
+                {numCols.map((c, ci) => {
+                  const colGlobal = spesaIdx + ci;
+                  const val = r[colGlobal];
+                  const n = Number(val) || 0;
+                  const color = c === "roas" ? (n >= AD_CFG.ROAS_GOOD ? POSITIVE : n > 0 && n < 1 ? NEGATIVE : undefined)
+                    : c === "costo_atc" && highlight && cpaIdx === colGlobal && n > 0 && n < cpaMed ? POSITIVE
+                    : undefined;
+                  const bold = c.includes("spesa") || c === "acquisti" || c === "roas";
+                  return (
+                    <td key={c} style={{
+                      ...ts.tdBase, ...ts.tdRight,
+                      color: color ?? ts.tdBase.color,
+                      fontWeight: bold ? 600 : 400,
+                    }}>{fmt(c, val)}</td>
+                  );
+                })}
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }

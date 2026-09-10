@@ -31,6 +31,23 @@ export type GrowthTile = { fronte: string; valore: number; delta_pct: number; un
 
 export type CreativeSet = { label: string; days: number; rows: (string | number)[][] };
 
+// Valutazione creatività dal motore Gondolina
+export type MetaVerdict = "SCALA" | "PROMETTE" | "RINNOVA" | "MANTIENI" | "OSSERVA" | "DA RIVEDERE" | "SPEGNI" | "IN RACCOLTA";
+export type MetaStadio = "In raccolta" | "Attenzione" | "Intento" | "Risultato";
+export type MetaValutazione = {
+  nome: string; formato: string; soggetto: string;
+  stadio: MetaStadio; indice: number; verdetto: MetaVerdict;
+  azione: string; segnali: string[];
+  spesa: number; impr: number; roas: number;
+  acquisti: number; atc: number;
+  hook: number; ctr_link: number; costo_atc: number;
+  fatigue?: number | null;
+};
+export type MetaBenchmark = {
+  affidabile: boolean; n: number;
+  hook: number; ctr_link: number; costo_atc: number; cpm: number; hold: number;
+};
+
 export type GondolinaData = {
   updated_at?: string;
   history_days?: number;
@@ -48,6 +65,21 @@ export type GondolinaData = {
 
   meta?: {
     creatives?: { w7?: CreativeSet; w30?: CreativeSet; w90?: CreativeSet };
+    creative_head?: string[];
+    // Motore Gondolina: valutazione già calcolata, ordinata (da decidere per primi)
+    valutazione?: MetaValutazione[];
+    benchmark?: MetaBenchmark;
+    // Aggregati per taglio, colonne in agg_head
+    per_formato?: (string | number | null)[][];
+    per_soggetto?: (string | number | null)[][];
+    agg_head?: string[];
+    // Adsets con performance per pubblico, colonne in adset_head
+    adsets_w30?: (string | number | null)[][];
+    adset_head?: string[];
+    // Break-down per paese e placement, colonne in break_head
+    paesi_w30?: (string | number | null)[][];
+    placement_w30?: (string | number | null)[][];
+    break_head?: string[];
   };
 
   ga4?: {

@@ -4,9 +4,9 @@ import { useMemo, useState } from "react";
 import {
   GondolinaData, useTheme,
   Card, CardHeader, EmptyState, tableStyles,
-  eur, eur0, integer, pctStr, fmtDateTime,
+  eur, eur0, integer, num, pctStr, fmtDateTime,
   ACCENT, POSITIVE, NEGATIVE, GOLD,
-  AD_CFG, DTS_OBJECTIVE,
+  DTS_OBJECTIVE,
   type Palette,
 } from "./shared";
 
@@ -37,7 +37,7 @@ export function SaluteTab({ data }: { data: GondolinaData }) {
       <div>
         <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, letterSpacing: "-0.01em", color: palette.text }}>Salute del sistema</h2>
         <p style={{ margin: "3px 0 0", fontSize: 12, color: palette.textDim }}>
-          Sei indicatori a semaforo che sintetizzano lo stato attuale. Non seguono il range: guardano l&apos;ultima finestra utile.
+          Sei indicatori a semaforo. Ognuno con valore, soglia e cosa fare se è rosso.
         </p>
       </div>
 
@@ -72,110 +72,112 @@ function SemaforoCard({ sem, palette }: { sem: Semaforo; palette: Palette }) {
   );
 }
 
-// ─── Compute semafori ─────────────────────────────────────────────
+// ─── Semafori dallo spec ─────────────────────────────────────────
 
 function computeSemafori(data: GondolinaData): Semaforo[] {
-  const onlineObjs = new Set(data.online_objectives ?? ["Online"]);
-  const advDaily = data.adv?.daily ?? [];
   const now = new Date();
+  const advDaily = data.adv?.daily ?? [];
+  const summary = data.summary?.w30;
 
-  // 1. ROAS obiettivo Online (ultima w30)
-  const last30Start = isoDaysAgo(30);
-  let spesaOnline = 0, valoreOnline = 0;
-  for (const r of advDaily) {
-    const d = String(r[0]);
-    const obj = String(r[2]);
-    if (d < last30Start) continue;
-    if (!onlineObjs.has(obj)) continue;
-    spesaOnline += Number(r[5]) || 0;
-    valoreOnline += Number(r[9]) || 0;
-  }
-  const roas = spesaOnline > 0 ? valoreOnline / spesaOnline : 0;
+  // 1. Attribuito vs GA4 (verde < 110%)
+  const attrib = summary?.attribuito_su_ga4_pct ?? null;
   const sem1: Semaforo = {
-    key: "roas",
-    title: "ROAS Online · ultimi 30 giorni",
-    status: spesaOnline < 100 ? "grey" : roas >= AD_CFG.ROAS_GOOD ? "green" : roas >= 1 ? "amber" : "red",
-    value: spesaOnline > 0 ? `${roas.toFixed(2)}×` : "—",
-    hint: spesaOnline < 100
-      ? "Spesa insufficiente per calcolo affidabile"
-      : roas >= AD_CFG.ROAS_GOOD ? "Sopra soglia buona (≥2×)"
-      : roas >= 1 ? "Sopra il pareggio ma sotto soglia (2×)"
-      : "Sotto pareggio: la campagna sta perdendo",
-    detail: `Valore ${eur0(valoreOnline)} su spesa ${eur0(spesaOnline)}. Ricorda: revenue arriva da GA4 e sottostima il reale (~1/3).`,
+    key: "attrib",
+    title: "Attribuito vs GA4",
+    status: attrib == null ? "grey" : attrib < 110 ? "green" : attrib < 150 ? "amber" : "red",
+    value: attrib == null ? "—" : pctStr(attrib, 1),
+    hint: attrib == null ? "Dato non disponibile"
+      : attrib < 110 ? "Attribuzione advertising in linea con quanto GA4 misura"
+      : attrib < 150 ? "Advertising rivendica più di quello che GA4 vede: modelli attributivi diversi"
+      : "Divergenza forte: quasi tutto il valore adv è attribuzione, non spinta reale",
+    detail: "Rapporto fra valore attribuito nelle piattaforme pubblicitarie e revenue GA4. Sopra 110% verde, oltre 150% rosso.",
   };
 
-  // 2. Frequenza Meta ultima w7 (se disponibile). Non abbiamo frequency nel daily aggregato,
-  //    quindi la stimiamo su rapporto imp/click sales objectives, oppure marchiamo N/A.
-  //    Meglio: proxy CPC Meta w7 come segnale di saturazione: CPC in aumento >20% è amber.
-  const w7Start = isoDaysAgo(7);
-  const w14Start = isoDaysAgo(14);
-  let metaImpW7 = 0, metaClickW7 = 0, metaSpendW7 = 0;
-  let metaImpPrev = 0, metaClickPrev = 0, metaSpendPrev = 0;
+  // 2. Spesa non classificata (quota spesa "Altro" ultimi 30 giorni)
+  const from30 = isoDaysAgo(30);
+  let spesaTot = 0, spesaAltro = 0;
   for (const r of advDaily) {
     const d = String(r[0]);
-    const plat = String(r[1]);
-    if (plat !== "Meta") continue;
-    const imp = Number(r[6]) || 0;
-    const click = Number(r[7]) || 0;
+    if (d < from30) continue;
+    const obj = String(r[2]);
     const spend = Number(r[5]) || 0;
-    if (d >= w7Start) { metaImpW7 += imp; metaClickW7 += click; metaSpendW7 += spend; }
-    else if (d >= w14Start) { metaImpPrev += imp; metaClickPrev += click; metaSpendPrev += spend; }
+    spesaTot += spend;
+    if (obj === "Altro") spesaAltro += spend;
   }
-  const cpcW7 = metaClickW7 > 0 ? metaSpendW7 / metaClickW7 : 0;
-  const cpcPrev = metaClickPrev > 0 ? metaSpendPrev / metaClickPrev : 0;
-  const cpcDelta = cpcPrev > 0 ? (cpcW7 - cpcPrev) / cpcPrev : 0;
+  const nonClassPct = spesaTot > 0 ? (spesaAltro / spesaTot) * 100 : 0;
   const sem2: Semaforo = {
-    key: "meta-cpc",
-    title: "CPC Meta · trend w7 vs w7 prec.",
-    status: metaSpendW7 < 50 ? "grey" : Math.abs(cpcDelta) < 0.15 ? "green" : cpcDelta > 0.30 ? "red" : "amber",
-    value: metaSpendW7 > 0 ? `${eur(cpcW7)} (${cpcDelta >= 0 ? "+" : ""}${(cpcDelta * 100).toFixed(0)}%)` : "—",
-    hint: metaSpendW7 < 50 ? "Spesa Meta troppo bassa per il segnale"
-      : cpcDelta > 0.30 ? "CPC in forte aumento: possibile saturazione o creatività stanche"
-      : cpcDelta > 0.15 ? "CPC in leggero rialzo: monitorare"
-      : "CPC stabile: nessun segnale di saturazione",
-    detail: `Spesa w7 ${eur0(metaSpendW7)}, click ${integer(metaClickW7)}. Proxy della frequenza (freq non nel feed).`,
+    key: "non-class",
+    title: "Spesa non classificata · 30g",
+    status: spesaTot < 50 ? "grey" : nonClassPct < 5 ? "green" : nonClassPct < 15 ? "amber" : "red",
+    value: spesaTot < 50 ? "—" : pctStr(nonClassPct, 1),
+    hint: spesaTot < 50 ? "Spesa 30g insufficiente per valutare"
+      : nonClassPct < 5 ? "Quasi tutta la spesa è classificata correttamente"
+      : nonClassPct < 15 ? "Qualche campagna finisce in Altro: rivedere naming o alias"
+      : "Molta spesa in Altro: aggregati per obiettivo poco affidabili",
+    detail: `Quota di ${eur0(spesaAltro)} su ${eur0(spesaTot)} finisce nell'obiettivo "Altro". Aggiungere alias in classificazione o rinominare le campagne.`,
   };
 
-  // 3. Spreco search terms (costo > 5€ con 0 conv)
+  // 3. Indicazioni tracciate (sum sul range 30g)
+  let indicazioni = 0;
+  for (const r of advDaily) {
+    const d = String(r[0]);
+    if (d < from30) continue;
+    indicazioni += Number(r[10]) || 0;
+  }
+  const sem3: Semaforo = {
+    key: "indicazioni",
+    title: "Indicazioni tracciate · 30g",
+    status: indicazioni > 0 ? "green" : spesaTot > 100 ? "red" : "grey",
+    value: integer(indicazioni),
+    hint: indicazioni > 0
+      ? "Il tracking delle indicazioni funziona"
+      : spesaTot > 100 ? "Nessuna indicazione tracciata pur avendo spesa: verifica il tag Drive to Store"
+      : "Nessun dato: la conversione non è stata attivata o non c'è spesa",
+    detail: "Conta le indicazioni al percorso stradale registrate come conversione dalle campagne Drive to Store nella finestra 30g.",
+  };
+
+  // 4. Termini a zero conversioni (quota costo su totale)
   const searchTerms = data.adv?.search_terms_w30 ?? [];
-  let sprecato = 0, sprecoRows = 0;
+  let costoTot = 0, costoSpreco = 0;
   for (const t of searchTerms) {
     const costo = Number(t[4]) || 0;
     const conv = Number(t[5]) || 0;
-    if (costo > 5 && conv === 0) { sprecato += costo; sprecoRows++; }
+    costoTot += costo;
+    if (conv === 0) costoSpreco += costo;
   }
-  const sem3: Semaforo = {
-    key: "sprechi",
-    title: "Spreco search terms · 30g",
-    status: searchTerms.length === 0 ? "grey" : sprecato < 20 ? "green" : sprecato < 100 ? "amber" : "red",
-    value: searchTerms.length === 0 ? "—" : `${eur0(sprecato)}`,
-    hint: searchTerms.length === 0 ? "Nessun termine di ricerca nel feed"
-      : sprecato < 20 ? "Spreco sotto controllo"
-      : sprecato < 100 ? "Da sorvegliare: aggiungere parole chiave a corrispondenza inversa"
-      : "Alto: intervenire con negative keyword sui termini flaggati",
-    detail: `${integer(sprecoRows)} termini con costo > 5€ e zero conversioni. Vedi tab Advertising → Search terms.`,
+  const sprecoPct = costoTot > 0 ? (costoSpreco / costoTot) * 100 : 0;
+  const sem4: Semaforo = {
+    key: "spreco",
+    title: "Termini a zero conversioni",
+    status: searchTerms.length === 0 ? "grey" : sprecoPct < 30 ? "green" : sprecoPct < 60 ? "amber" : "red",
+    value: searchTerms.length === 0 ? "—" : pctStr(sprecoPct, 1),
+    hint: searchTerms.length === 0 ? "Nessun search term nel feed"
+      : sprecoPct < 30 ? "Spreco fisiologico"
+      : sprecoPct < 60 ? "Metà del costo va su termini senza conversioni: aggiungere negative keyword"
+      : "La maggior parte del costo va sprecata: intervento urgente su negative keyword",
+    detail: `${eur0(costoSpreco)} su ${eur0(costoTot)} è finito su termini che non hanno convertito. Vedi tab Advertising → Search terms.`,
   };
 
-  // 4. Freshness updated_at
+  // 5. Freschezza dati (ore da updated_at, verde < 8)
   const upd = data.updated_at ? new Date(data.updated_at) : null;
   const ageMinutes = upd ? Math.floor((now.getTime() - upd.getTime()) / 60000) : Infinity;
   const ageHours = ageMinutes / 60;
-  const sem4: Semaforo = {
+  const sem5: Semaforo = {
     key: "freshness",
     title: "Freschezza dati",
-    status: !upd ? "grey" : ageHours <= 24 ? "green" : ageHours <= 48 ? "amber" : "red",
+    status: !upd ? "grey" : ageHours < 8 ? "green" : ageHours < 24 ? "amber" : "red",
     value: !upd ? "—" : ageHours < 1 ? `${ageMinutes} min` : ageHours < 24 ? `${ageHours.toFixed(1)} h` : `${Math.floor(ageHours / 24)} g`,
     hint: !upd ? "Timestamp non disponibile"
-      : ageHours <= 24 ? "Dati aggiornati nelle ultime 24 ore"
-      : ageHours <= 48 ? "Aggiornamento in ritardo: verificare lo script"
-      : "Feed fermo: la dashboard non riflette la realtà",
+      : ageHours < 8 ? "Dati freschi"
+      : ageHours < 24 ? "Aggiornamento sopra le 8h: verifica lo scheduler"
+      : "Feed fermo da più di un giorno: la dashboard non riflette la realtà",
     detail: upd ? `Ultimo aggiornamento: ${fmtDateTime(data.updated_at!)}` : "Il feed non ha inviato un updated_at valido.",
   };
 
-  // 5. Ritardo Search Console
+  // 6. Ritardo Search Console (verde ≤ 3g)
   const gscLast = data.gsc?.ultimo_giorno;
   const gscLag = gscLast ? Math.floor((now.getTime() - new Date(gscLast + "T00:00:00Z").getTime()) / 86400000) : Infinity;
-  const sem5: Semaforo = {
+  const sem6: Semaforo = {
     key: "gsc-lag",
     title: "Ritardo Search Console",
     status: !gscLast ? "grey" : gscLag <= 3 ? "green" : gscLag <= 5 ? "amber" : "red",
@@ -187,35 +189,6 @@ function computeSemafori(data: GondolinaData): Semaforo[] {
     detail: gscLast ? `Ultimo giorno con dati SEO: ${gscLast}. I confronti SEO usano questo limite.` : "Nessun dato Search Console.",
   };
 
-  // 6. Copertura classificazione campagne (spesa Meta con classificazione ≠ vuoto)
-  const classif = data.adv?.classificazione ?? [];
-  const classifSet = new Set(classif.map((r) => `${r[0]}|${r[1]}`));
-  const daysN = 30;
-  const from = isoDaysAgo(daysN);
-  let spesaMetaTot = 0, spesaMetaClass = 0;
-  for (const r of advDaily) {
-    const d = String(r[0]);
-    if (d < from) continue;
-    const plat = String(r[1]);
-    if (plat !== "Meta") continue;
-    const camp = String(r[3]);
-    const spend = Number(r[5]) || 0;
-    spesaMetaTot += spend;
-    if (classifSet.has(`${camp}|${plat}`)) spesaMetaClass += spend;
-  }
-  const cov = spesaMetaTot > 0 ? spesaMetaClass / spesaMetaTot : 0;
-  const sem6: Semaforo = {
-    key: "classif",
-    title: "Copertura classificazione · 30g",
-    status: spesaMetaTot < 50 ? "grey" : cov >= 0.90 ? "green" : cov >= 0.70 ? "amber" : "red",
-    value: spesaMetaTot < 50 ? "—" : pctStr(cov * 100, 1),
-    hint: spesaMetaTot < 50 ? "Spesa Meta insufficiente per valutare la copertura"
-      : cov >= 0.90 ? "Quasi tutta la spesa Meta è classificata"
-      : cov >= 0.70 ? "Alcune campagne Meta non classificate: gli aggregati per obiettivo perdono precisione"
-      : "Molte campagne Meta senza classificazione: gli aggregati per obiettivo sono inaffidabili",
-    detail: `Spesa classificata ${eur0(spesaMetaClass)} su ${eur0(spesaMetaTot)}. Le campagne senza mapping finiscono in "${DTS_OBJECTIVE}" o "Altro".`,
-  };
-
   return [sem1, sem2, sem3, sem4, sem5, sem6];
 }
 
@@ -225,23 +198,37 @@ function isoDaysAgo(n: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-// ─── Audit classificazione (accordion) ────────────────────────────
+// ─── Classificazione audit (contatori cliccabili + tabella filtrata) ─
+
+type MetodoFilter = "all" | "prefisso" | "alias" | "nessuna";
+
+function methodCategory(metodo: string): "prefisso" | "alias" | "nessuna" | "altro" {
+  const m = metodo.toLowerCase();
+  if (m.includes("prefisso") || m.includes("prefix")) return "prefisso";
+  if (m.includes("alias")) return "alias";
+  if (m.includes("nessuna") || m.includes("non classificat")) return "nessuna";
+  return "altro";
+}
 
 function ClassificazioneAccordion({ data, palette }: { data: GondolinaData; palette: Palette }) {
   const [open, setOpen] = useState(false);
+  const [filter, setFilter] = useState<MetodoFilter>("all");
   const rows = data.adv?.classificazione ?? [];
   const ts = tableStyles(palette);
 
-  const totalByObj = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const r of rows) {
-      const obj = String(r[2] ?? "—");
-      m.set(obj, (m.get(obj) ?? 0) + (Number(r[4]) || 0));
-    }
-    return Array.from(m.entries()).sort((a, b) => b[1] - a[1]);
+  const counts = useMemo(() => {
+    const c = { prefisso: 0, alias: 0, nessuna: 0, altro: 0 };
+    for (const r of rows) c[methodCategory(String(r[3] ?? ""))]++;
+    return c;
   }, [rows]);
 
-  const totalSpend = totalByObj.reduce((s, [, v]) => s + v, 0);
+  const filtered = useMemo(() => {
+    if (filter === "all") return rows;
+    return rows.filter((r) => methodCategory(String(r[3] ?? "")) === filter);
+  }, [rows, filter]);
+
+  const sorted = useMemo(() => [...filtered].sort((a, b) => (Number(b[4]) || 0) - (Number(a[4]) || 0)), [filtered]);
+  const totalSpend = rows.reduce((s, r) => s + (Number(r[4]) || 0), 0);
 
   return (
     <Card>
@@ -253,7 +240,7 @@ function ClassificazioneAccordion({ data, palette }: { data: GondolinaData; pale
         <div>
           <div style={{ fontSize: 14, fontWeight: 700, color: palette.text }}>Audit classificazione campagne</div>
           <div style={{ fontSize: 11, color: palette.textDim, marginTop: 2 }}>
-            {integer(rows.length)} regole, spesa totale mappata {eur0(totalSpend)}
+            {integer(rows.length)} regole, spesa mappata {eur0(totalSpend)}
           </div>
         </div>
         <span style={{
@@ -264,22 +251,17 @@ function ClassificazioneAccordion({ data, palette }: { data: GondolinaData; pale
 
       {open && (
         <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 14 }}>
-          {totalByObj.length > 0 && (
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              {totalByObj.map(([obj, spesa]) => (
-                <span key={obj} style={{
-                  padding: "4px 10px", borderRadius: 20, background: palette.divider,
-                  color: palette.textMuted, fontSize: 11, fontWeight: 600,
-                }}>
-                  {obj} · <strong style={{ color: ACCENT }}>{eur0(spesa)}</strong>
-                </span>
-              ))}
-            </div>
-          )}
+          {/* Contatori cliccabili */}
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <FilterChip label="Tutte" count={rows.length} active={filter === "all"} color={palette.textMuted} onClick={() => setFilter("all")} palette={palette} />
+            <FilterChip label="Da prefisso" count={counts.prefisso} active={filter === "prefisso"} color={POSITIVE} onClick={() => setFilter(filter === "prefisso" ? "all" : "prefisso")} palette={palette} />
+            <FilterChip label="Da alias" count={counts.alias} active={filter === "alias"} color={GOLD} onClick={() => setFilter(filter === "alias" ? "all" : "alias")} palette={palette} />
+            <FilterChip label="Non classificate" count={counts.nessuna} active={filter === "nessuna"} color={NEGATIVE} onClick={() => setFilter(filter === "nessuna" ? "all" : "nessuna")} palette={palette} />
+          </div>
 
-          {rows.length === 0 ? <EmptyState label="Nessuna regola di classificazione" /> : (
+          {sorted.length === 0 ? <EmptyState label="Nessuna regola col filtro" /> : (
             <div style={{ overflowX: "auto", maxHeight: 500 }}>
-              <CardHeader title={`Regole (${rows.length})`} />
+              <CardHeader title={`Regole (${sorted.length})`} />
               <table style={ts.table}>
                 <thead><tr>
                   <th style={ts.th}>Campagna</th>
@@ -289,8 +271,12 @@ function ClassificazioneAccordion({ data, palette }: { data: GondolinaData; pale
                   <th style={{ ...ts.th, ...ts.thRight }}>Spesa</th>
                 </tr></thead>
                 <tbody>
-                  {rows.map((r, i) => {
+                  {sorted.map((r, i) => {
                     const obj = String(r[2] ?? "");
+                    const metodo = String(r[3] ?? "");
+                    const cat = methodCategory(metodo);
+                    const metCol = cat === "prefisso" ? POSITIVE : cat === "alias" ? GOLD : cat === "nessuna" ? NEGATIVE : palette.textDim;
+                    const metBg = cat === "prefisso" ? `${POSITIVE}22` : cat === "alias" ? `${GOLD}22` : cat === "nessuna" ? `${NEGATIVE}22` : palette.divider;
                     const dts = obj === DTS_OBJECTIVE;
                     return (
                       <tr key={i}>
@@ -301,7 +287,12 @@ function ClassificazioneAccordion({ data, palette }: { data: GondolinaData; pale
                         }} title={String(r[0])}>{String(r[0])}</td>
                         <td style={ts.tdBase}>{String(r[1])}</td>
                         <td style={{ ...ts.tdBase, color: dts ? GOLD : palette.text, fontWeight: dts ? 600 : 400 }}>{obj}</td>
-                        <td style={{ ...ts.tdBase, color: palette.textDim, fontSize: 11 }}>{String(r[3] ?? "")}</td>
+                        <td style={ts.tdBase}>
+                          <span style={{
+                            padding: "1px 8px", borderRadius: 20, background: metBg, color: metCol,
+                            fontSize: 10, fontWeight: 700, letterSpacing: "0.04em",
+                          }}>{metodo}</span>
+                        </td>
                         <td style={{ ...ts.tdBase, ...ts.tdRight, fontWeight: 600 }}>{eur0(Number(r[4]))}</td>
                       </tr>
                     );
@@ -315,3 +306,21 @@ function ClassificazioneAccordion({ data, palette }: { data: GondolinaData; pale
     </Card>
   );
 }
+
+function FilterChip({ label, count, active, color, onClick, palette }: {
+  label: string; count: number; active: boolean; color: string; onClick: () => void; palette: Palette;
+}) {
+  return (
+    <button onClick={onClick} style={{
+      padding: "5px 12px", borderRadius: 20, cursor: "pointer",
+      border: `1px solid ${active ? color : palette.cardBorder}`,
+      background: active ? `${color}22` : "transparent",
+      color: active ? color : palette.textMuted,
+      fontSize: 11, fontWeight: 700, fontFamily: "inherit", letterSpacing: "0.02em",
+    }}>
+      {label} <span style={{ opacity: 0.7 }}>({integer(count)})</span>
+    </button>
+  );
+}
+
+void eur; void num;
