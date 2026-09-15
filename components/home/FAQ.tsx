@@ -6,7 +6,15 @@ import ScrollReveal from "@/components/ui/ScrollReveal";
 const faqs = [
   {
     q: "Come capite se ProfitFlow™ è adatto al mio store?",
-    a: "In 30 minuti analizziamo il tuo catalogo, i margini per categoria e le campagne Google attive. Se non c'è fit, te lo diciamo subito – senza perderti tempo. Se c'è, ti spieghiamo esattamente cosa faremmo e perché.",
+    a: "In 30 minuti analizziamo il tuo catalogo, i margini per categoria e le campagne Google attive. Se non c'è fit, te lo diciamo subito, senza perderti tempo. Se c'è, ti spieghiamo esattamente cosa faremmo e perché.",
+  },
+  {
+    q: "Lavorate solo con Shopify?",
+    a: "Sì. Ci siamo specializzati su un'unica piattaforma per conoscerne ogni dettaglio: feed, checkout, app, tracking. È il motivo per cui andiamo più a fondo di un'agenzia generalista.",
+  },
+  {
+    q: "Fate solo Google Ads?",
+    a: "No. Google Ads è il motore, intercetta chi sta già cercando quello che vendi, ed è lì che parte il ritorno. Ma da solo lavora una volta sola: CRO, email e feed sono i moltiplicatori che fanno rendere di più ogni euro investito. Lavoriamo su tutto l'ecosistema, integrato nel metodo ProfitFlow™, mai come servizi separati.",
   },
   {
     q: "Devo già avere campagne pubblicitarie attive?",
@@ -18,10 +26,10 @@ const faqs = [
   },
   {
     q: "Di quali accessi avete bisogno?",
-    a: "Per la call gratuita non servono accessi – parliamo in base a quello che ci condividi tu. NDA disponibile su richiesta prima di qualsiasi condivisione di dati.",
+    a: "Per la prima call non servono accessi: parliamo in base a quello che ci condividi tu. NDA disponibile su richiesta prima di qualsiasi condivisione di dati.",
   },
   {
-    q: "Gestiamo già lo store con un'agenzia – ha senso comunque?",
+    q: "Gestiamo già lo store con un'agenzia, ha senso comunque?",
     a: "Sì. La nostra analisi è indipendente: identifichiamo cosa manca e dove si perde profitto. Puoi usare il piano d'azione con la tua agenzia attuale, oppure valutare insieme a noi i prossimi passi.",
   },
   {
@@ -78,10 +86,10 @@ export default function FAQ() {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
 
   return (
-    <section id="faq" className="bg-brand-gray py-24 md:py-36">
+    <section id="faq" className="bg-brand-gray py-16 md:py-24">
       <div className="max-w-3xl mx-auto px-4">
         <ScrollReveal>
-          <div className="text-center mb-14">
+          <div className="text-center mb-10 md:mb-12">
             <p className="text-brand-orange font-semibold text-sm uppercase tracking-[0.18em] mb-3">Hai domande?</p>
             <h2 className="text-3xl md:text-4xl font-bold text-brand-blue">
               Domande Frequenti

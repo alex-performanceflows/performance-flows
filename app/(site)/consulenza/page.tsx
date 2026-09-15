@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Prenota una Consulenza | Performance Flows",
+  title: "Raccontaci del tuo progetto | Performance Flows",
   description:
-    "Prenota una call conoscitiva gratuita con Performance Flows. Analizzeremo il tuo e-commerce Shopify e valuteremo come il metodo ProfitFlow™ può aiutarti a scalare.",
+    "Parlaci del tuo store Shopify. Guardiamo insieme numeri, margini e campagne, e valutiamo se il metodo ProfitFlow™ è la strada giusta per te.",
 };
 
 export default function ConsulenzaPage() {
@@ -11,11 +11,11 @@ export default function ConsulenzaPage() {
     <section className="py-16 md:py-24">
       <div className="max-w-3xl mx-auto px-4 text-center">
         <h1 className="text-3xl md:text-4xl font-bold text-brand-blue mb-4">
-          Prenota una consulenza gratuita
+          Raccontaci del tuo progetto
         </h1>
         <p className="text-brand-text-light text-lg mb-10 max-w-xl mx-auto">
-          Scegli il giorno e l&apos;orario che preferisci. Ti ricontatteremo per
-          una sessione 1:1 dove analizzeremo il tuo e-commerce Shopify.
+          Scegli il giorno e l&apos;orario che preferisci. Ci sentiamo 1:1 per
+          capire dove sei oggi e se possiamo davvero esserti utili.
         </p>
 
         {/* Calendly embed placeholder */}

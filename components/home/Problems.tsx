@@ -12,25 +12,25 @@ const problems = [
     desc: "Poche o tante modifiche, ma nessun piano chiaro o aggiornamenti di strategia. Sei tu a dover spingere perché le cose si muovano.",
   },
   {
-    title: "Budget investito sui prodotti sbagliati.",
-    desc: "Spingi i bestseller senza sapere se sono quelli che generano più margine. Il budget ads non è allineato alla profittabilità reale del catalogo.",
+    title: "Il budget va sui prodotti sbagliati.",
+    desc: "Spingi i bestseller per abitudine, non per strategia. Senza una lettura del margine reale per prodotto, stai investendo su ciò che vende, non su ciò che guadagna.",
   },
   {
     title: "Tracking inaffidabile, decisioni a caso.",
     desc: "I dati non tornano, le conversioni si perdono e le decisioni di budget si basano su numeri che non riflettono la realtà del tuo Shopify.",
   },
   {
-    title: "Hai centinaia di prodotti ma non sai quali spingere.",
-    desc: "Il budget va sui bestseller per abitudine, non per strategia. Senza una lettura del margine per categoria, stai investendo sugli articoli che vendono – non su quelli che guadagnano.",
+    title: "Compri traffico, ma dietro non c'è niente.",
+    desc: "Il sito non converte come dovrebbe e chi compra una volta non torna: ogni euro di ads lavora una volta sola, senza CRO né email che lo moltiplicano.",
   },
 ];
 
 export default function Problems() {
   return (
-    <section id="problemi" className="bg-white py-24 md:py-36">
+    <section id="problemi" className="bg-white py-16 md:py-24">
       <div className="max-w-6xl mx-auto px-6">
         <ScrollReveal>
-          <div className="mb-16 md:mb-20">
+          <div className="mb-10 md:mb-14">
             <p className="text-brand-orange font-medium text-xs uppercase tracking-[0.18em] mb-4">Perché stai leggendo questa pagina</p>
             <h2 className="text-4xl md:text-5xl text-brand-blue leading-tight">
               I problemi

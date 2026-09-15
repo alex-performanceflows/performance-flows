@@ -66,7 +66,7 @@ export default function QuizResult({ score }: { score: number }) {
               href="https://performanceflows.com/#contatto"
               className="inline-block bg-brand-blue text-white font-semibold px-8 py-4 rounded-lg hover:bg-brand-blue-dark transition text-lg"
             >
-              Prenota una consulenza gratuita
+              Raccontaci del tuo progetto
             </a>
             <p className="text-xs text-brand-text-light">
               Analizzeremo il tuo punteggio e ti daremo un piano d&apos;azione

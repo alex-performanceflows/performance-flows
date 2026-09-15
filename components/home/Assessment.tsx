@@ -75,7 +75,7 @@ const steps = [
 
 const forWho = {
   yes: [
-    "Hai uno store Shopify attivo con almeno €5.000/mese di fatturato",
+    "Hai uno store Shopify attivo con almeno €25.000/mese di fatturato",
     "Stai già investendo in advertising o vuoi farlo con metodo",
     "Vuoi scalare il profitto, non solo il fatturato",
   ],
@@ -90,20 +90,20 @@ const outputs = [
   "Analisi live dei tuoi margini e delle tue campagne",
   "Identificazione dei principali freni al profitto",
   "Piano d'azione prioritizzato e personalizzato",
-  "Nessun impegno — zero pitch commerciale",
+  "Nessun impegno, zero pitch commerciale",
 ];
 
 export default function Assessment() {
   return (
-    <section className="bg-brand-gray py-24 md:py-36" id="come-funziona">
-      <div className="max-w-5xl mx-auto px-4 space-y-20">
+    <section className="bg-brand-gray py-16 md:py-24" id="come-funziona">
+      <div className="max-w-5xl mx-auto px-4 space-y-14 md:space-y-20">
 
         {/* Header + domande */}
         <div>
           <ScrollReveal>
-            <div className="text-center mb-12">
+            <div className="text-center mb-10">
               <p className="text-brand-orange font-semibold text-sm uppercase tracking-[0.18em] mb-4">
-                Diagnosi gratuita
+                Analizziamo insieme il tuo progetto
               </p>
               <h2 className="text-3xl md:text-4xl font-bold text-brand-blue leading-tight">
                 Troviamo insieme la risposta <br className="hidden md:block" />a queste domande
@@ -130,7 +130,7 @@ export default function Assessment() {
         {/* Come funziona */}
         <div>
           <ScrollReveal>
-            <h2 className="text-3xl md:text-4xl font-bold text-brand-blue text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold text-brand-blue text-center mb-8 md:mb-10">
               Ok, come funziona?
             </h2>
           </ScrollReveal>
@@ -236,14 +236,16 @@ export default function Assessment() {
             <div className="absolute inset-0 opacity-5" style={{ backgroundImage: "radial-gradient(circle, #ffffff 1px, transparent 1px)", backgroundSize: "28px 28px" }} />
             <div className="relative">
               <p className="text-white text-lg md:text-xl font-medium leading-relaxed max-w-2xl mx-auto mb-8">
-                La <strong className="text-brand-orange">consulenza ProfitFlow™</strong> è un'analisi 1:1 del tuo Shopify — uscirai con un piano d'azione chiaro per{" "}
-                <strong>aumentare il profitto del tuo store.</strong>
+                Guardiamo insieme il tuo Shopify in una call 1:1 e usciamo con un piano
+                d&apos;azione chiaro per{" "}
+                <strong>aumentare il profitto del tuo store.</strong> Se capiamo che non
+                siamo i partner giusti, te lo diciamo lì.
               </p>
               <a
                 href="#contatto"
                 className="inline-flex items-center gap-2 bg-brand-orange text-white font-bold text-base px-8 py-4 rounded-xl hover:bg-brand-orange-light transition shadow-lg shadow-brand-orange/30 hover:shadow-brand-orange/50 hover:-translate-y-0.5 transform"
               >
-                Richiedi la tua analisi gratuita
+                Raccontaci del tuo progetto
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
                 </svg>

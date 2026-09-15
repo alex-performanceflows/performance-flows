@@ -75,7 +75,7 @@ const doubled = [...reviews, ...reviews];
 
 export default function ReviewsCarousel() {
   return (
-    <section className="bg-brand-gray py-20 md:py-28 overflow-hidden">
+    <section className="bg-brand-gray py-16 md:py-24 overflow-hidden">
       <div className="max-w-6xl mx-auto px-4 mb-12">
         <ScrollReveal>
           <div className="text-center">

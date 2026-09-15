@@ -1,12 +1,18 @@
 import { Resend } from "resend";
 import { NextResponse } from "next/server";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Istanziato alla prima richiesta e non all'import: così la build non fallisce
+// negli ambienti dove la chiave non è configurata (es. build locale).
+let resendClient: Resend | null = null;
+function getResend(): Resend {
+  if (!resendClient) resendClient = new Resend(process.env.RESEND_API_KEY);
+  return resendClient;
+}
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { name, email, business, phone, budget } = body;
+    const { name, email, business, phone, budget, platform } = body;
 
     if (!name || !email || !business || !budget) {
       return NextResponse.json(
@@ -23,13 +29,13 @@ export async function POST(request: Request) {
       );
     }
 
-    await resend.emails.send({
+    await getResend().emails.send({
       from: "Performance Flows <noreply@performanceflows.com>",
       to: "alex@performanceflows.com",
-      subject: `Nuova richiesta consulenza — ${business}`,
+      subject: `Nuova richiesta progetto: ${business}`,
       html: `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #1a1a6e;">Nuova richiesta di consulenza</h2>
+          <h2 style="color: #1a1a6e;">Nuova richiesta dal sito</h2>
           <table style="border-collapse: collapse; width: 100%;">
             <tr>
               <td style="padding: 10px 12px; border: 1px solid #ddd; background: #f9f9f9; font-weight: bold; width: 160px;">Nome</td>
@@ -46,6 +52,10 @@ export async function POST(request: Request) {
             <tr>
               <td style="padding: 10px 12px; border: 1px solid #ddd; background: #f9f9f9; font-weight: bold;">Telefono</td>
               <td style="padding: 10px 12px; border: 1px solid #ddd;">${phone || "Non fornito"}</td>
+            </tr>
+            <tr>
+              <td style="padding: 10px 12px; border: 1px solid #ddd; background: #f9f9f9; font-weight: bold;">Piattaforma</td>
+              <td style="padding: 10px 12px; border: 1px solid #ddd;">${platform || "Non indicata"}</td>
             </tr>
             <tr>
               <td style="padding: 10px 12px; border: 1px solid #ddd; background: #f9f9f9; font-weight: bold;">Budget Ads</td>

@@ -1,7 +1,14 @@
 import type { Metadata } from "next";
 import { Inter, DM_Serif_Display } from "next/font/google";
 import Script from "next/script";
+import CookieConsent from "@/components/legal/CookieConsent";
 import "./globals.css";
+
+// GA4 viene montato da CookieConsent solo dopo il consenso. GTM si attiva solo
+// se NEXT_PUBLIC_GTM_ID è configurato: senza, non montiamo nulla per evitare
+// richieste a un container inesistente.
+const GTM_ID = process.env.NEXT_PUBLIC_GTM_ID;
+const GA4_ID = process.env.NEXT_PUBLIC_GA4_ID ?? "G-RLJYB22C34";
 
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
 const dmSerif = DM_Serif_Display({
@@ -14,7 +21,7 @@ const dmSerif = DM_Serif_Display({
 export const metadata: Metadata = {
   title: "Performance Flows | Agenzia eCommerce Profit-First per Shopify",
   description:
-    "Scala il profitto del tuo e-commerce Shopify con il metodo ProfitFlow™. Performance Marketing, CRO, Marketing Automation e Google Ads orientati al profitto. Consulenza gratuita.",
+    "Scala il profitto del tuo e-commerce Shopify con il metodo ProfitFlow™. Performance Marketing, CRO, Marketing Automation e Google Ads orientati al profitto per store Shopify.",
   keywords: [
     "Google Ads Shopify",
     "ecommerce profit-first",
@@ -67,47 +74,33 @@ export default function RootLayout({
       <head />
       <body className="min-h-full flex flex-col">
         {/* GTM noscript fallback */}
-        <noscript>
-          <iframe
-            src="https://www.googletagmanager.com/ns.html?id=GTM-XXXXXXX"
-            height="0" width="0"
-            style={{ display: "none", visibility: "hidden" }}
-          />
-        </noscript>
+        {GTM_ID && (
+          <noscript>
+            <iframe
+              src={`https://www.googletagmanager.com/ns.html?id=${GTM_ID}`}
+              height="0" width="0"
+              style={{ display: "none", visibility: "hidden" }}
+            />
+          </noscript>
+        )}
 
         {children}
 
-        {/* Google Analytics 4 */}
-        <Script
-          src="https://www.googletagmanager.com/gtag/js?id=G-RLJYB22C34"
-          strategy="afterInteractive"
-        />
-        <Script id="ga-config" strategy="afterInteractive">{`
-          window.dataLayer = window.dataLayer || [];
-          function gtag(){dataLayer.push(arguments);}
-          gtag('js', new Date());
-          gtag('config', 'G-RLJYB22C34');
-        `}</Script>
+        {/* Banner cookie + Google Analytics: GA4 viene caricato solo dopo il
+            consenso, così prima della scelta non viene scritto alcun cookie. */}
+        <CookieConsent ga4Id={GA4_ID} />
 
-        {/* Google Tag Manager */}
-        <Script id="gtm" strategy="afterInteractive">{`
-          (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-          new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-          j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-          'https://www.googletagmanager.com/gtm.js?id='+i+dl;
-          f.parentNode.insertBefore(j,f);
-          })(window,document,'script','dataLayer','GTM-XXXXXXX');
-        `}</Script>
-
-        {/* Iubenda — cookie consent */}
-        <Script
-          src="https://embeds.iubenda.com/widgets/bf381bbd-7740-49f9-b833-7c4b3ab340d8.js"
-          strategy="lazyOnload"
-        />
-        <Script
-          src="https://cdn.iubenda.com/iubenda.js"
-          strategy="lazyOnload"
-        />
+        {/* Google Tag Manager: solo se configurato */}
+        {GTM_ID && (
+          <Script id="gtm" strategy="afterInteractive">{`
+            (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+            new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+            j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+            'https://www.googletagmanager.com/gtm.js?id='+i+dl;
+            f.parentNode.insertBefore(j,f);
+            })(window,document,'script','dataLayer','${GTM_ID}');
+          `}</Script>
+        )}
       </body>
     </html>
   );

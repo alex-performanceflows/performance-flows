@@ -10,6 +10,7 @@ interface FormData {
   business: string;
   phone: string;
   budget: string;
+  platform: string;
 }
 
 export default function ContactForm() {
@@ -17,9 +18,12 @@ export default function ContactForm() {
     register,
     handleSubmit,
     reset,
+    watch,
     formState: { errors },
   } = useForm<FormData>();
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const platform = watch("platform");
+  const nonShopify = platform === "altro";
 
   const onSubmit = async (data: FormData) => {
     setStatus("loading");
@@ -44,7 +48,7 @@ export default function ContactForm() {
   };
 
   return (
-    <section id="contatto" className="relative bg-brand-blue overflow-hidden py-20 md:py-28">
+    <section id="contatto" className="relative bg-brand-blue overflow-hidden py-16 md:py-24">
       {/* Background pattern */}
       <div
         className="absolute inset-0 opacity-5"
@@ -61,19 +65,20 @@ export default function ContactForm() {
           {/* Left: copy */}
           <ScrollReveal>
             <div className="text-white">
-              <p className="text-brand-orange font-semibold text-sm uppercase tracking-widest mb-4">Inizia ora</p>
+              <p className="text-brand-orange font-semibold text-sm uppercase tracking-widest mb-4">Parliamone</p>
               <h2 className="text-3xl md:text-4xl font-bold mb-6 leading-tight">
-                Prenota la tua consulenza gratuita
+                Raccontaci del tuo progetto
               </h2>
               <p className="text-blue-200 text-lg mb-8 leading-relaxed">
-                Compila il form e ti ricontatteremo entro 24 ore per fissare la call conoscitiva.
+                Compila il form e ti ricontattiamo entro 24 ore. Ci serve capire dove sei
+                oggi per dirti con onestà se possiamo esserti utili.
               </p>
               <ul className="space-y-4">
                 {[
-                  "Sessione 1:1 di 30 minuti",
-                  "Analisi del tuo store e dei margini",
-                  "Piano d'azione personalizzato",
-                  "Nessun impegno richiesto",
+                  "Una call 1:1 di 30 minuti, senza slide",
+                  "Guardiamo insieme numeri, margini e campagne",
+                  "Ti diciamo dove lasci profitto sul tavolo",
+                  "Se non c'è fit, te lo diciamo subito",
                 ].map((item) => (
                   <li key={item} className="flex items-center gap-3 text-blue-100">
                     <span className="w-5 h-5 rounded-full bg-brand-orange/20 border border-brand-orange/40 flex items-center justify-center flex-shrink-0">
@@ -98,7 +103,7 @@ export default function ContactForm() {
                   </svg>
                 </div>
                 <h3 className="text-xl font-bold text-brand-blue mb-2">Richiesta inviata!</h3>
-                <p className="text-brand-text-light text-sm">Ti ricontatteremo entro 24 ore per fissare la call conoscitiva.</p>
+                <p className="text-brand-text-light text-sm">Ti ricontattiamo entro 24 ore per fissare la call.</p>
               </div>
             ) : (
               <form
@@ -156,6 +161,29 @@ export default function ContactForm() {
 
                   <div className="col-span-2">
                     <label className="block text-xs font-semibold text-brand-text mb-1.5 uppercase tracking-wide">
+                      Il tuo store è su che piattaforma? *
+                    </label>
+                    <select
+                      {...register("platform", { required: true })}
+                      className={`w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue bg-white transition ${errors.platform ? "border-red-300" : "border-gray-200"}`}
+                    >
+                      <option value="">Seleziona la piattaforma</option>
+                      <option value="shopify">Shopify</option>
+                      <option value="shopify-plus">Shopify Plus</option>
+                      <option value="altro">Altra piattaforma (WooCommerce, Magento, Prestashop…)</option>
+                    </select>
+                    {nonShopify && (
+                      <p className="mt-2 text-xs text-brand-text-light leading-relaxed bg-brand-gray border border-black/[0.06] rounded-lg px-3 py-2.5">
+                        Lavoriamo esclusivamente su Shopify: è così che riusciamo ad
+                        andare a fondo su feed, checkout e tracking. Puoi comunque
+                        scriverci, e se stai valutando una migrazione ne parliamo
+                        volentieri.
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="col-span-2">
+                    <label className="block text-xs font-semibold text-brand-text mb-1.5 uppercase tracking-wide">
                       Spesa mensile in advertising *
                     </label>
                     <select
@@ -163,8 +191,8 @@ export default function ContactForm() {
                       className={`w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue bg-white transition ${errors.budget ? "border-red-300" : "border-gray-200"}`}
                     >
                       <option value="">Seleziona un range</option>
-                      <option value="0-5000">€0 – €5.000</option>
-                      <option value="5000-10000">€5.000 – €10.000</option>
+                      <option value="0-3000">Meno di €3.000</option>
+                      <option value="3000-10000">€3.000 – €10.000</option>
                       <option value="10000-50000">€10.000 – €50.000</option>
                       <option value="50000+">€50.000+</option>
                     </select>
@@ -180,7 +208,7 @@ export default function ContactForm() {
                     "Invio in corso..."
                   ) : (
                     <>
-                      Prenota una consulenza
+                      Raccontaci del tuo progetto
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
                       </svg>

@@ -5,8 +5,8 @@ import ScrollReveal from "@/components/ui/ScrollReveal";
 const steps = [
   {
     num: "01",
-    title: "Call conoscitiva gratuita",
-    desc: "Ci allineiamo sugli obiettivi, raccogliamo accessi solo lettura (GA4, Google Ads, Merchant Center) e i dati base di margine. Verifichiamo che il tuo e-commerce possa crescere grazie a ProfitFlow™.",
+    title: "Ci conosciamo",
+    desc: "Ci allineiamo sugli obiettivi, raccogliamo accessi solo lettura (GA4, Google Ads, Merchant Center) e i dati base di margine. Verifichiamo insieme se il tuo e-commerce può crescere con ProfitFlow™, e se siamo i partner giusti.",
     icon: (
       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -26,7 +26,7 @@ const steps = [
   {
     num: "03",
     title: "Attivazione ProfitFlow™",
-    desc: "Attiviamo Google Ads con struttura orientata al margine, ottimizziamo il feed per categoria e installiamo il tracking sul profitto reale. Poi costruiamo attorno i moltiplicatori giusti — CRO, automazioni, SEO — in base a dove il tuo store ha più margine di miglioramento.",
+    desc: "Attiviamo Google Ads con struttura orientata al margine, ottimizziamo il feed per categoria e installiamo il tracking sul profitto reale. Poi costruiamo attorno i moltiplicatori giusti (CRO, automazioni, SEO) in base a dove il tuo store ha più margine di miglioramento.",
     icon: (
       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
@@ -36,7 +36,7 @@ const steps = [
   {
     num: "04",
     title: "Ottimizzazione continua",
-    desc: "Ogni mese analizziamo performance per categoria di catalogo, aggiustiamo campagne e feed, e identifichiamo nuove opportunità di margine. Il tuo store migliora mese dopo mese — senza che tu debba spingere.",
+    desc: "I nostri sistemi AI controllano performance e anomalie ogni giorno; noi interveniamo sulle decisioni. Il tuo store è monitorato costantemente, non solo quando qualcuno apre l'account.",
     icon: (
       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -46,15 +46,15 @@ const steps = [
 ];
 
 const forWho = [
-  "Store Shopify con catalogo di 200+ SKU o più categorie di prodotto",
-  "Store Shopify con ticket medio ≥ 40–50€",
+  "Store Shopify con prodotti a domanda esistente",
+  "Ticket medio ≥ 40–50€",
   "Margine lordo ≥ 55%",
   "Budget Google Ads ≥ €3k/mese (o piano per arrivarci in 60 gg)",
   "Early stage? Ok, se disposti a sistemare tracking, feed e CRO",
 ];
 
 const notForWho = [
-  "Brand monoprodotto o con meno di 50 SKU",
+  "Store non su Shopify",
   "Progetti di Lead Generation o solo Brand Awareness",
   "Store di dropshipping a basso margine",
   "Sito immodificabile (no interventi su UX, offerte, checkout)",
@@ -62,22 +62,22 @@ const notForWho = [
 
 export default function Solution() {
   return (
-    <section id="metodo" className="bg-white py-24 md:py-36">
+    <section id="metodo" className="bg-white py-16 md:py-24">
       <div className="max-w-6xl mx-auto px-4">
         <ScrollReveal>
-          <div className="text-center mb-16">
+          <div className="text-center mb-10 md:mb-14">
             <p className="text-brand-orange font-semibold text-sm uppercase tracking-[0.18em] mb-3">Come funziona</p>
             <h2 className="text-3xl md:text-4xl font-bold text-brand-blue mb-4">
               Il Metodo ProfitFlow™
             </h2>
             <p className="text-brand-text-light text-lg max-w-xl mx-auto">
-              ProfitFlow™ è il motore completo per la crescita profittevole del tuo store – Google Ads come motore principale, feed, CRO, SEO e automazioni come moltiplicatori. Un percorso chiaro, senza sorprese.
+              ProfitFlow™ è il motore completo per la crescita profittevole del tuo store: Google Ads come motore principale, poi feed, CRO, SEO e automazioni come moltiplicatori. Un percorso chiaro, senza sorprese.
             </p>
           </div>
         </ScrollReveal>
 
         {/* Steps */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
           {steps.map((step, i) => (
             <ScrollReveal key={step.num} delay={i * 0.12}>
               <div className="relative group h-full">

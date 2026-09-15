@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Indice di Scalabilità Shopify | Performance Flows",
   description:
-    "Scopri il potenziale di crescita del tuo store Shopify con il nostro check-up gratuito in 3 minuti. 15 domande per valutare advertising, CRO, tracking e margini — risultato personalizzato immediato.",
+    "Scopri il potenziale di crescita del tuo store Shopify con il nostro check-up gratuito in 3 minuti. 15 domande per valutare advertising, CRO, tracking e margini, con risultato personalizzato immediato.",
   keywords: [
     "check-up ecommerce Shopify",
     "scalabilità store Shopify",
@@ -20,7 +20,7 @@ export const metadata: Metadata = {
     canonical: "https://performanceflows.com/indice-di-scalabilita-shopify",
   },
   openGraph: {
-    title: "Indice di Scalabilità Shopify — Check-up Gratuito in 3 Minuti",
+    title: "Indice di Scalabilità Shopify: Check-up Gratuito in 3 Minuti",
     description:
       "Scopri quanto è scalabile il tuo store Shopify. 15 domande su advertising, CRO, tracking e margini. Risultato personalizzato gratuito.",
     url: "https://performanceflows.com/indice-di-scalabilita-shopify",

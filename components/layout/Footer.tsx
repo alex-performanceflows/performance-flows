@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 
 export default function Footer() {
   return (
@@ -23,24 +24,12 @@ export default function Footer() {
           </div>
 
           <div className="flex gap-6 text-sm text-blue-200">
-            <a
-              href="https://www.iubenda.com/privacy-policy/23514732"
-              className="iubenda-white iubenda-noiframe iubenda-embed hover:text-white transition"
-              title="Privacy Policy"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
+            <Link href="/privacy-policy" className="hover:text-white transition">
               Privacy Policy
-            </a>
-            <a
-              href="https://www.iubenda.com/privacy-policy/23514732/cookie-policy"
-              className="iubenda-white iubenda-noiframe iubenda-embed hover:text-white transition"
-              title="Cookie Policy"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
+            </Link>
+            <Link href="/cookie-policy" className="hover:text-white transition">
               Cookie Policy
-            </a>
+            </Link>
           </div>
         </div>
 
