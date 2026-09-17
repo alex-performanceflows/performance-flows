@@ -13,11 +13,17 @@ import {
   ACCENT, GOLD, CHART_PALETTE, POSITIVE, NEGATIVE,
   COMPARE_LABEL, DTS_OBJECTIVE, SALES_OBJECTIVES,
   AD_CFG,
+  creativeWindowFor, useTableSort, SortTh, ratio, mean, AVG_TITLE, avgRowStyle, useElementWidth,
+  type CreativeWindow, type SortValue,
 } from "./shared";
 import type { MetaValutazione, MetaVerdict, MetaStadio, MetaBenchmark } from "./shared";
+import {
+  CreativeWindowDetail, AvgTd, WINDOW_LABEL,
+  creativeKey, isVideoFormat, useCreativeWindows, valutazioneWindow,
+  type CreativeMetricsRaw, type CreativeWindows,
+} from "./creatives";
 
 type SubTab = "riepilogo" | "obiettivo" | "piattaforma" | "campagne" | "search" | "creative" | "formati" | "pubblico";
-type CreativesWindow = "w7" | "w30" | "w90";
 
 const SUB: { key: SubTab; label: string }[] = [
   { key: "riepilogo", label: "Riepilogo" },
@@ -542,31 +548,41 @@ function SortHdr({ th, thRight, label, col, sortBy, sortDir, onClick }: {
 // ═══ 2f Creatività Meta (dal motore: meta.valutazione + meta.benchmark) ═══
 
 const VERDICT_UI: Record<MetaVerdict, { color: string; bg: string; desc: string }> = {
-  "SCALA":        { color: POSITIVE,   bg: "rgba(34,197,94,0.18)",  desc: "Alza il budget: ROAS solido e pubblico non saturo" },
+  "SCALA":        { color: POSITIVE,   bg: "rgba(34,197,94,0.18)",  desc: "ROAS solido e pubblico non saturo" },
   "PROMETTE":     { color: "#5FCF7A",  bg: "rgba(34,197,94,0.10)",  desc: "Segnali di traffico buoni, ROAS ancora in raccolta" },
-  "RINNOVA":      { color: "#f59e0b",  bg: "rgba(245,158,11,0.15)", desc: "Fatigue in arrivo: prepara ricambio" },
-  "MANTIENI":     { color: "#0ea5e9",  bg: "rgba(14,165,233,0.15)", desc: "Nella norma: tienila attiva" },
-  "OSSERVA":      { color: "#94a3b8",  bg: "rgba(148,163,184,0.18)",desc: "Serve più volume prima di giudicare" },
-  "DA RIVEDERE":  { color: "#ef4444",  bg: "rgba(239,68,68,0.10)",  desc: "Segnali contrastanti: guardarla e decidere" },
-  "SPEGNI":       { color: NEGATIVE,   bg: "rgba(239,68,68,0.20)",  desc: "Spende e non produce: chiudila" },
-  "IN RACCOLTA":  { color: "#94a3b8",  bg: "rgba(148,163,184,0.14)",desc: "Dati insufficienti per una decisione" },
+  "RINNOVA":      { color: "#f59e0b",  bg: "rgba(245,158,11,0.15)", desc: "Segnali di fatigue: rendimento in calo con l'esposizione" },
+  "MANTIENI":     { color: "#0ea5e9",  bg: "rgba(14,165,233,0.15)", desc: "Nella norma rispetto all'account" },
+  "OSSERVA":      { color: "#94a3b8",  bg: "rgba(148,163,184,0.18)",desc: "Volume ancora limitato per un giudizio" },
+  "DA RIVEDERE":  { color: "#ef4444",  bg: "rgba(239,68,68,0.10)",  desc: "Segnali contrastanti fra le metriche" },
+  "SPEGNI":       { color: NEGATIVE,   bg: "rgba(239,68,68,0.20)",  desc: "Spesa senza risultati proporzionati" },
+  "IN RACCOLTA":  { color: "#94a3b8",  bg: "rgba(148,163,184,0.14)",desc: "Dati ancora insufficienti" },
 };
 
 const STADIO_HINT: Record<MetaStadio, string> = {
-  "In raccolta": "Serve più spesa prima di poter leggere qualcosa",
+  "In raccolta": "Spesa ancora bassa per una lettura affidabile",
   "Attenzione":  "Hook e CTR sul link leggibili in 2-3 giorni",
   "Intento":     "Add to cart e checkout leggibili in 4-7 giorni",
   "Risultato":   "ROAS sulla singola creatività leggibile in 2-4 settimane",
 };
 
+/** Ordine dei verdetti: prima quelli più "caldi". */
+const VERDICT_RANK: Record<MetaVerdict, number> = {
+  "SCALA": 0, "PROMETTE": 1, "RINNOVA": 2, "DA RIVEDERE": 3,
+  "SPEGNI": 4, "MANTIENI": 5, "OSSERVA": 6, "IN RACCOLTA": 7,
+};
+
+/** Avanzamento della lettura: dalla raccolta dati al risultato. */
+const STADIO_RANK: Record<MetaStadio, number> = { "In raccolta": 0, "Attenzione": 1, "Intento": 2, "Risultato": 3 };
+
 function CreativitaMetaView({ data }: { data: GondolinaData }) {
   const { palette } = useTheme();
   const [filter, setFilter] = useState<"all" | "da-scalare" | "da-rinnovare" | "da-rivedere" | "da-spegnere">("all");
-  const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
   // Aggreghiamo per nome + formato: Meta espone la stessa creatività su più
   // adset/placement, qui la sommiamo in un'unica riga.
   const valutazione = useMemo(() => aggregateValutazione(data.meta?.valutazione ?? []), [data.meta?.valutazione]);
   const benchmark = data.meta?.benchmark;
+  const windows = useCreativeWindows(data);
+  const valWindow = useMemo(() => valutazioneWindow(data), [data]);
 
   const counts = useMemo(() => {
     const c = { scalare: 0, rinnovare: 0, rivedere: 0, spegnere: 0 };
@@ -605,20 +621,20 @@ function CreativitaMetaView({ data }: { data: GondolinaData }) {
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
         <FiltroCard label="Da scalare"    count={counts.scalare}   color={POSITIVE} active={filter === "da-scalare"}   onClick={() => setFilter(filter === "da-scalare" ? "all" : "da-scalare")} desc="SCALA + PROMETTE" />
-        <FiltroCard label="Da rinnovare"  count={counts.rinnovare} color="#f59e0b"  active={filter === "da-rinnovare"} onClick={() => setFilter(filter === "da-rinnovare" ? "all" : "da-rinnovare")} desc="Fatigue in arrivo" />
+        <FiltroCard label="Da rinnovare"  count={counts.rinnovare} color="#f59e0b"  active={filter === "da-rinnovare"} onClick={() => setFilter(filter === "da-rinnovare" ? "all" : "da-rinnovare")} desc="Segnali di fatigue" />
         <FiltroCard label="Da rivedere"   count={counts.rivedere}  color="#ef4444"  active={filter === "da-rivedere"}  onClick={() => setFilter(filter === "da-rivedere" ? "all" : "da-rivedere")} desc="Segnali contrastanti" />
-        <FiltroCard label="Da spegnere"   count={counts.spegnere}  color={NEGATIVE} active={filter === "da-spegnere"}  onClick={() => setFilter(filter === "da-spegnere" ? "all" : "da-spegnere")} desc="Costa e non produce" />
+        <FiltroCard label="Da spegnere"   count={counts.spegnere}  color={NEGATIVE} active={filter === "da-spegnere"}  onClick={() => setFilter(filter === "da-spegnere" ? "all" : "da-spegnere")} desc="Spesa senza risultati proporzionati" />
       </div>
 
-      <Card>
-        <CardHeader title={`Creatività · ${visible.length} inserzioni`}
-          right={<div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            {filter !== "all" && <Pill active={false} onClick={() => setFilter("all")}>× rimuovi filtro</Pill>}
-          </div>} />
-        {visible.length === 0 ? <EmptyState label="Nessuna creatività coi filtri" /> : (
-          <ValutazioneTable rows={visible} expandedIdx={expandedIdx} setExpandedIdx={setExpandedIdx} />
-        )}
-      </Card>
+      {visible.length === 0 ? (
+        <Card>
+          <CardHeader title="Creatività · 0 inserzioni" right={<Pill active={false} onClick={() => setFilter("all")}>× rimuovi filtro</Pill>} />
+          <EmptyState label="Nessuna creatività coi filtri" />
+        </Card>
+      ) : (
+        <ValutazioneTable rows={visible} windows={windows} valWindow={valWindow} benchmark={benchmark}
+          filterActive={filter !== "all"} onClearFilter={() => setFilter("all")} />
+      )}
 
       <Card>
         <CardHeader title="Dove si rompe · Hook rate × CTR sul link"
@@ -677,68 +693,154 @@ function IndiceBar({ indice }: { indice: number }) {
   );
 }
 
-function ValutazioneTable({ rows, expandedIdx, setExpandedIdx }: {
-  rows: MetaValutazione[]; expandedIdx: number | null; setExpandedIdx: (i: number | null) => void;
+function ValutazioneTable({ rows, windows, valWindow, benchmark, filterActive, onClearFilter }: {
+  rows: MetaValutazione[]; windows: CreativeWindows; valWindow: CreativeWindow | null;
+  benchmark: MetaBenchmark | undefined; filterActive: boolean; onClearFilter: () => void;
 }) {
   const { palette } = useTheme();
   const ts = tableStyles(palette);
+  const [openKey, setOpenKey] = useState<string | null>(null);
+  // Il pannello di dettaglio resta a vista anche con la tabella scrollata in orizzontale
+  const { ref: wrapRef, width: wrapWidth } = useElementWidth<HTMLDivElement>();
+
+  const { sorted, sort, toggle, reset } = useTableSort<MetaValutazione>(rows, (v, key): SortValue => {
+    switch (key) {
+      case "nome": return v.nome;
+      case "formato": return v.formato;
+      case "soggetto": return v.soggetto;
+      case "stadio": return STADIO_RANK[v.stadio] ?? null;
+      case "indice": return v.indice;
+      case "verdetto": return VERDICT_RANK[v.verdetto] ?? null;
+      case "spesa": return v.spesa;
+      case "hook": return isVideoFormat(v.formato) && v.impr > 0 ? v.hook : null;
+      case "ctr": return v.impr > 0 ? v.ctr_link : null;
+      case "costoAtc": return v.atc > 0 ? v.costo_atc : null;
+      case "acquisti": return v.acquisti;
+      case "roas": return v.roas > 0 ? v.roas : null;
+      default: return null;
+    }
+  });
+
+  // Media sulle righe visibili: costi e tassi dai totali, volumi per riga
+  const avg = useMemo(() => {
+    const t = { spesa: 0, impr: 0, atc: 0, valore: 0, ctr: 0, hook: 0, imprVideo: 0 };
+    for (const v of rows) {
+      t.spesa += v.spesa; t.impr += v.impr; t.atc += v.atc;
+      t.valore += (v.roas ?? 0) * v.spesa;
+      t.ctr += (v.ctr_link ?? 0) * v.impr;
+      if (isVideoFormat(v.formato)) { t.hook += (v.hook ?? 0) * v.impr; t.imprVideo += v.impr; }
+    }
+    return {
+      spesa: mean(rows.map((v) => v.spesa)),
+      hook: ratio(t.hook, t.imprVideo),
+      ctr: ratio(t.ctr, t.impr),
+      costoAtc: ratio(t.spesa, t.atc),
+      acquisti: mean(rows.map((v) => v.acquisti)),
+      roas: t.valore > 0 ? ratio(t.valore, t.spesa) : null,
+    };
+  }, [rows]);
+
+  const th = { sort, onSort: toggle };
+  const dash = "—";
+  const fmt = (x: number | null, f: (n: number) => string) => (x == null ? dash : f(x));
+
   return (
-    <div style={{ overflowX: "auto" }}>
-      <table style={ts.table}>
-        <thead><tr>
-          <th style={ts.th}>Creatività</th>
-          <th style={ts.th}>Formato</th>
-          <th style={ts.th}>Soggetto</th>
-          <th style={ts.th}>Stadio</th>
-          <th style={{ ...ts.th, minWidth: 110 }}>Indice</th>
-          <th style={ts.th}>Verdetto</th>
-          <th style={{ ...ts.th, ...ts.thRight }}>Spesa</th>
-          <th style={{ ...ts.th, ...ts.thRight }}>Hook</th>
-          <th style={{ ...ts.th, ...ts.thRight }}>CTR link</th>
-          <th style={{ ...ts.th, ...ts.thRight }}>Costo/ATC</th>
-          <th style={{ ...ts.th, ...ts.thRight }}>Acquisti</th>
-          <th style={{ ...ts.th, ...ts.thRight }}>ROAS</th>
-        </tr></thead>
-        <tbody>
-          {rows.map((v, i) => {
-            const isOpen = expandedIdx === i;
-            return (
-              <React.Fragment key={i}>
-                <tr style={{ cursor: "pointer", background: isOpen ? palette.divider : undefined }}
-                    onClick={() => setExpandedIdx(isOpen ? null : i)}>
-                  <td style={{ ...ts.tdBase, maxWidth: 220, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: palette.text, fontWeight: 500 }} title={v.nome}>
-                    <span style={{ marginRight: 6, color: palette.textFaint, fontSize: 10 }}>{isOpen ? "▾" : "▸"}</span>{v.nome}
-                  </td>
-                  <td style={{ ...ts.tdBase, fontSize: 11, color: palette.textMuted }}>{v.formato}</td>
-                  <td style={{ ...ts.tdBase, fontSize: 11, color: palette.textMuted }}>{v.soggetto}</td>
-                  <td style={{ ...ts.tdBase, fontSize: 10 }}>
-                    <span title={STADIO_HINT[v.stadio] ?? ""} style={{ color: palette.textDim, cursor: "help" }}>{v.stadio}</span>
-                  </td>
-                  <td style={ts.tdBase}><IndiceBar indice={v.indice} /></td>
-                  <td style={ts.tdBase}><VerdictBadge verdict={v.verdetto} /></td>
-                  <td style={{ ...ts.tdBase, ...ts.tdRight }}>{eur(v.spesa)}</td>
-                  <td style={{ ...ts.tdBase, ...ts.tdRight }}>{pctStr(v.hook * 100, 1)}</td>
-                  <td style={{ ...ts.tdBase, ...ts.tdRight }}>{pctStr(v.ctr_link * 100, 2)}</td>
-                  <td style={{ ...ts.tdBase, ...ts.tdRight }}>{v.atc > 0 ? eur(v.costo_atc) : "—"}</td>
-                  <td style={{ ...ts.tdBase, ...ts.tdRight, fontWeight: v.acquisti > 0 ? 600 : 400 }}>{integer(v.acquisti)}</td>
-                  <td style={{ ...ts.tdBase, ...ts.tdRight, color: v.roas >= AD_CFG.ROAS_GOOD ? POSITIVE : v.roas > 0 && v.roas < 1 ? NEGATIVE : ts.tdBase.color, fontWeight: 700 }}>{v.roas > 0 ? num(v.roas, 2) : "—"}</td>
-                </tr>
-                {isOpen && v.segnali.length > 0 && (
-                  <tr style={{ background: palette.divider }}>
-                    <td colSpan={12} style={{ padding: "1rem 1.25rem" }}>
-                      <p style={{ margin: "0 0 6px", fontSize: 10, fontWeight: 700, color: palette.textDim, textTransform: "uppercase", letterSpacing: "0.05em" }}>Diagnostica</p>
-                      <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: palette.textMuted, lineHeight: 1.6 }}>
-                        {v.segnali.map((s, si) => <li key={si}>{s}</li>)}
-                      </ul>
+    <Card>
+      <CardHeader title={`Creatività · ${rows.length} inserzioni`}
+        right={<div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
+          {valWindow && <span style={{ fontSize: 11, color: palette.textDim }}>valori sugli {WINDOW_LABEL[valWindow]}</span>}
+          {sort && <Pill active={false} onClick={reset}>Ordine predefinito</Pill>}
+          {filterActive && <Pill active={false} onClick={onClearFilter}>× rimuovi filtro</Pill>}
+        </div>} />
+      <div ref={wrapRef} style={{ overflowX: "auto" }}>
+        <table style={ts.table}>
+          <thead><tr>
+            <SortTh label="Creatività" sortKey="nome" {...th} />
+            <SortTh label="Formato" sortKey="formato" {...th} />
+            <SortTh label="Soggetto" sortKey="soggetto" {...th} />
+            <SortTh label="Stadio" sortKey="stadio" first="desc" title="Dalla raccolta dati al risultato" {...th} />
+            <SortTh label="Indice" sortKey="indice" first="desc" style={{ minWidth: 110 }} {...th} />
+            <SortTh label="Verdetto" sortKey="verdetto" {...th} />
+            <SortTh label="Spesa" sortKey="spesa" align="right" {...th} />
+            <SortTh label="Hook" sortKey="hook" align="right" title="Solo video" {...th} />
+            <SortTh label="CTR link" sortKey="ctr" align="right" {...th} />
+            <SortTh label="Costo/ATC" sortKey="costoAtc" align="right" first="asc" {...th} />
+            <SortTh label="Acquisti" sortKey="acquisti" align="right" {...th} />
+            <SortTh label="ROAS" sortKey="roas" align="right" {...th} />
+          </tr></thead>
+          <tbody>
+            <tr style={avgRowStyle(palette)}>
+              <td style={{ ...ts.tdBase, color: palette.text, fontWeight: 700, whiteSpace: "nowrap" }} title={AVG_TITLE}>
+                Media <span style={{ fontWeight: 500, color: palette.textDim }}>· {integer(rows.length)} creatività</span>
+              </td>
+              <td style={ts.tdBase} />
+              <td style={ts.tdBase} />
+              <td style={ts.tdBase} />
+              <td style={ts.tdBase} />
+              <td style={ts.tdBase} />
+              <AvgTd ts={ts}>{fmt(avg.spesa, eur)}</AvgTd>
+              <AvgTd ts={ts}>{fmt(avg.hook, (x) => pctStr(x, 1))}</AvgTd>
+              <AvgTd ts={ts}>{fmt(avg.ctr, (x) => pctStr(x, 2))}</AvgTd>
+              <AvgTd ts={ts} strong>{fmt(avg.costoAtc, eur)}</AvgTd>
+              <AvgTd ts={ts}>{fmt(avg.acquisti, (x) => num(x, 1))}</AvgTd>
+              <AvgTd ts={ts} strong>{fmt(avg.roas, (x) => num(x, 2))}</AvgTd>
+            </tr>
+
+            {sorted.map((v) => {
+              const key = creativeKey(v.nome, v.formato);
+              const isOpen = openKey === key;
+              const video = isVideoFormat(v.formato);
+              const toggleOpen = () => setOpenKey(isOpen ? null : key);
+              return (
+                <React.Fragment key={key}>
+                  <tr
+                    onClick={toggleOpen}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleOpen(); } }}
+                    tabIndex={0}
+                    aria-expanded={isOpen}
+                    style={{ cursor: "pointer", background: isOpen ? palette.buttonHover : undefined }}
+                  >
+                    <td style={{ ...ts.tdBase, maxWidth: 220, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: palette.text, fontWeight: 500 }} title={v.nome}>
+                      <span style={{ display: "inline-block", width: 12, color: palette.textDim, fontSize: 9 }}>{isOpen ? "▾" : "▸"}</span>{v.nome}
                     </td>
+                    <td style={{ ...ts.tdBase, fontSize: 11, color: palette.textMuted }}>{v.formato}</td>
+                    <td style={{ ...ts.tdBase, fontSize: 11, color: palette.textMuted }}>{v.soggetto}</td>
+                    <td style={{ ...ts.tdBase, fontSize: 10 }}>
+                      <span title={STADIO_HINT[v.stadio] ?? ""} style={{ color: palette.textDim, cursor: "help", whiteSpace: "nowrap" }}>{v.stadio}</span>
+                    </td>
+                    <td style={ts.tdBase}><IndiceBar indice={v.indice} /></td>
+                    <td style={ts.tdBase}><VerdictBadge verdict={v.verdetto} /></td>
+                    <td style={{ ...ts.tdBase, ...ts.tdRight }}>{eur(v.spesa)}</td>
+                    <td style={{ ...ts.tdBase, ...ts.tdRight }}>{video && v.impr > 0 ? pctStr(v.hook, 1) : dash}</td>
+                    <td style={{ ...ts.tdBase, ...ts.tdRight }}>{v.impr > 0 ? pctStr(v.ctr_link, 2) : dash}</td>
+                    <td style={{ ...ts.tdBase, ...ts.tdRight }}>{v.atc > 0 ? eur(v.costo_atc) : dash}</td>
+                    <td style={{ ...ts.tdBase, ...ts.tdRight, fontWeight: v.acquisti > 0 ? 600 : 400 }}>{integer(v.acquisti)}</td>
+                    <td style={{ ...ts.tdBase, ...ts.tdRight, color: v.roas >= AD_CFG.ROAS_GOOD ? POSITIVE : v.roas > 0 && v.roas < 1 ? NEGATIVE : ts.tdBase.color, fontWeight: 700 }}>{v.roas > 0 ? num(v.roas, 2) : dash}</td>
                   </tr>
-                )}
-              </React.Fragment>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+                  {isOpen && (
+                    <tr>
+                      <td colSpan={12} style={{ padding: 0, borderBottom: `1px solid ${palette.cardBorder}`, background: palette.divider }}>
+                        <div style={{ position: "sticky", left: 0, width: wrapWidth || "100%", boxSizing: "border-box", padding: "14px 16px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
+                          {v.segnali.length > 0 && (
+                            <div>
+                              <p style={{ margin: "0 0 6px", fontSize: 10, fontWeight: 700, color: palette.textDim, textTransform: "uppercase", letterSpacing: "0.05em" }}>Diagnostica</p>
+                              <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: palette.textMuted, lineHeight: 1.6 }}>
+                                {v.segnali.map((sg, si) => <li key={si}>{sg}</li>)}
+                              </ul>
+                            </div>
+                          )}
+                          <CreativeWindowDetail nome={v.nome} formato={v.formato} windows={windows} highlight={valWindow} benchmark={benchmark} />
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </Card>
   );
 }
 
@@ -746,8 +848,9 @@ function HookCtrScatter({ rows, benchmark }: { rows: MetaValutazione[]; benchmar
   const { palette } = useTheme();
   const points = rows.filter((r) => r.hook > 0 || r.ctr_link > 0);
   if (points.length === 0) return <EmptyState label="Dati insufficienti per lo scatter" />;
-  const maxHook = Math.max(...points.map((p) => p.hook), 0.5);
-  const maxCtr = Math.max(...points.map((p) => p.ctr_link), 0.05);
+  // Hook e CTR sul link arrivano dal motore già in percentuale
+  const maxHook = Math.max(...points.map((p) => p.hook), 5);
+  const maxCtr = Math.max(...points.map((p) => p.ctr_link), 1);
   const maxSpesa = Math.max(1, ...points.map((p) => p.spesa));
   const bx = benchmark?.affidabile ? benchmark.hook : null;
   const by = benchmark?.affidabile ? benchmark.ctr_link : null;
@@ -758,15 +861,15 @@ function HookCtrScatter({ rows, benchmark }: { rows: MetaValutazione[]; benchmar
           <CartesianGrid stroke={palette.grid} />
           <XAxis type="number" dataKey="hook" name="Hook" domain={[0, maxHook * 1.1]}
             tick={{ fill: palette.axis, fontSize: 11 }} axisLine={{ stroke: palette.cardBorder }} tickLine={false}
-            tickFormatter={(v) => pctStr(Number(v) * 100, 0)}
+            tickFormatter={(v) => pctStr(Number(v), 0)}
             label={{ value: "Hook rate →", position: "insideBottom", offset: -8, fill: palette.textDim, fontSize: 11 }} />
           <YAxis type="number" dataKey="ctr_link" name="CTR link" domain={[0, maxCtr * 1.1]}
             tick={{ fill: palette.axis, fontSize: 11 }} axisLine={{ stroke: palette.cardBorder }} tickLine={false}
-            tickFormatter={(v) => pctStr(Number(v) * 100, 1)}
+            tickFormatter={(v) => pctStr(Number(v), 1)}
             label={{ value: "CTR sul link ↑", angle: -90, position: "insideLeft", fill: palette.textDim, fontSize: 11 }} />
           <ZAxis type="number" dataKey="spesa" range={[40, Math.max(600, maxSpesa)]} />
-          {bx != null && <ReferenceLine x={bx} stroke={palette.textFaint} strokeDasharray="4 4" label={{ value: `Hook mediana ${pctStr(bx * 100, 0)}`, fill: palette.textDim, fontSize: 10, position: "insideTopLeft" }} />}
-          {by != null && <ReferenceLine y={by} stroke={palette.textFaint} strokeDasharray="4 4" label={{ value: `CTR mediana ${pctStr(by * 100, 1)}`, fill: palette.textDim, fontSize: 10, position: "insideBottomRight" }} />}
+          {bx != null && <ReferenceLine x={bx} stroke={palette.textFaint} strokeDasharray="4 4" label={{ value: `Hook mediana ${pctStr(bx, 0)}`, fill: palette.textDim, fontSize: 10, position: "insideTopLeft" }} />}
+          {by != null && <ReferenceLine y={by} stroke={palette.textFaint} strokeDasharray="4 4" label={{ value: `CTR mediana ${pctStr(by, 1)}`, fill: palette.textDim, fontSize: 10, position: "insideBottomRight" }} />}
           <Tooltip cursor={{ strokeDasharray: "3 3", stroke: palette.textFaint }} content={<HookScatterTooltip />} />
           <Scatter data={points.filter((p) => p.verdetto === "SCALA" || p.verdetto === "PROMETTE")} fill={POSITIVE} fillOpacity={0.75} name="Scala/Promette" />
           <Scatter data={points.filter((p) => p.verdetto === "RINNOVA")} fill="#f59e0b" fillOpacity={0.75} name="Rinnova" />
@@ -796,8 +899,8 @@ function HookScatterTooltip({ active, payload }: any) {
         <span style={{ fontSize: 10, color: palette.textDim }}>{p.stadio}</span>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2px 12px", fontVariantNumeric: "tabular-nums" }}>
-        <span style={{ color: palette.textDim }}>Hook</span><span style={{ textAlign: "right" }}>{pctStr(p.hook * 100, 1)}</span>
-        <span style={{ color: palette.textDim }}>CTR link</span><span style={{ textAlign: "right" }}>{pctStr(p.ctr_link * 100, 2)}</span>
+        <span style={{ color: palette.textDim }}>Hook</span><span style={{ textAlign: "right" }}>{pctStr(p.hook, 1)}</span>
+        <span style={{ color: palette.textDim }}>CTR link</span><span style={{ textAlign: "right" }}>{pctStr(p.ctr_link, 2)}</span>
         <span style={{ color: palette.textDim }}>Spesa</span><span style={{ textAlign: "right" }}>{eur(p.spesa)}</span>
         <span style={{ color: palette.textDim }}>ROAS</span><span style={{ textAlign: "right" }}>{num(p.roas, 2)}</span>
       </div>
@@ -932,69 +1035,162 @@ function FunnelStrip({ data }: { data: GondolinaData }) {
 
 // ═══ 2g Cosa vince: formato e soggetto ══════════════════════════
 
+type GroupRow = {
+  nome: string; n: number;
+  spesa: number; impression: number; clickLink: number; atc: number; acquisti: number; valore: number;
+  hookNum: number; imprVideo: number;
+};
+
+/** Somma le creatività della finestra per un taglio (formato o soggetto). */
+function groupCreatives(creatives: CreativeMetricsRaw[], keyOf: (c: CreativeMetricsRaw) => string): GroupRow[] {
+  const m = new Map<string, GroupRow>();
+  for (const c of creatives) {
+    const k = keyOf(c) || "—";
+    const g = m.get(k) ?? { nome: k, n: 0, spesa: 0, impression: 0, clickLink: 0, atc: 0, acquisti: 0, valore: 0, hookNum: 0, imprVideo: 0 };
+    g.n++; g.spesa += c.spesa; g.impression += c.impression; g.clickLink += c.clickLink;
+    g.atc += c.atc; g.acquisti += c.acquisti; g.valore += c.valore;
+    if (isVideoFormat(c.formato)) { g.hookNum += c.hookRate * c.impression; g.imprVideo += c.impression; }
+    m.set(k, g);
+  }
+  return [...m.values()];
+}
+
 function FormatiSoggettiView({ data }: { data: GondolinaData }) {
   const { palette } = useTheme();
-  const head = data.meta?.agg_head ?? ["valore", "spesa", "impression", "click_link", "ctr_link", "atc", "costo_atc", "acquisti", "valore_acq", "roas", "hook_medio"];
+  const { preset, range } = useDateRange();
+  // Il periodo lo decide il selettore in alto: ricondotto alla finestra del motore più vicina
+  const { win, exact } = creativeWindowFor(preset, range.days);
+  const windows = useCreativeWindows(data);
+  const creatives = useMemo(() => [...windows[win].values()], [windows, win]);
+  const perFormato = useMemo(() => groupCreatives(creatives, (c) => c.formato), [creatives]);
+  const perSoggetto = useMemo(() => groupCreatives(creatives, (c) => c.soggetto), [creatives]);
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))", gap: 16 }}>
-      <Card>
-        <CardHeader title="Per formato · 30 giorni"
-          right={<span style={{ fontSize: 11, color: palette.textDim }}>convenzione naming: Formato - Soggetto - Numero</span>} />
-        <AggTable rows={data.meta?.per_formato ?? []} head={head} palette={palette} />
-      </Card>
-      <Card>
-        <CardHeader title="Per soggetto · 30 giorni" />
-        <AggTable rows={data.meta?.per_soggetto ?? []} head={head} palette={palette} />
-      </Card>
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      {!exact && (
+        <p style={{ margin: 0, fontSize: 12, color: palette.textDim, lineHeight: 1.5 }}>
+          Periodo: <strong style={{ color: palette.textMuted }}>{WINDOW_LABEL[win]}</strong>, la finestra più vicina al periodo selezionato in alto: le creatività sono calcolate su 7, 30 e 90 giorni.
+        </p>
+      )}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))", gap: 16 }}>
+        <Card>
+          <CardHeader title={`Per formato · ${WINDOW_LABEL[win]}`}
+            right={<span style={{ fontSize: 11, color: palette.textDim }}>convenzione naming: Formato - Soggetto - Numero</span>} />
+          <AggTable rows={perFormato} noun="formati" nameLabel="Formato" />
+        </Card>
+        <Card>
+          <CardHeader title={`Per soggetto · ${WINDOW_LABEL[win]}`} />
+          <AggTable rows={perSoggetto} noun="soggetti" nameLabel="Soggetto" />
+        </Card>
+      </div>
     </div>
   );
 }
 
-function AggTable({ rows, head, palette }: { rows: (string | number | null)[][]; head: string[]; palette: import("./shared").Palette }) {
+function AggTable({ rows, noun, nameLabel }: { rows: GroupRow[]; noun: string; nameLabel: string }) {
+  const { palette } = useTheme();
   const ts = tableStyles(palette);
+  const derived = (g: GroupRow) => ({
+    ctrLink: ratio(g.clickLink, g.impression, 100),
+    costoAtc: ratio(g.spesa, g.atc),
+    roas: g.valore > 0 ? ratio(g.valore, g.spesa) : null,
+    hook: ratio(g.hookNum, g.imprVideo),
+  });
+
+  const { sorted, sort, toggle } = useTableSort<GroupRow>(rows, (g, key): SortValue => {
+    switch (key) {
+      case "nome": return g.nome;
+      case "spesa": return g.spesa;
+      case "impr": return g.impression;
+      case "clickLink": return g.clickLink;
+      case "ctrLink": return derived(g).ctrLink;
+      case "atc": return g.atc;
+      case "costoAtc": return derived(g).costoAtc;
+      case "acquisti": return g.acquisti;
+      case "valore": return g.valore;
+      case "roas": return derived(g).roas;
+      case "hook": return derived(g).hook;
+      default: return null;
+    }
+  }, { key: "spesa", dir: "desc" });
+
+  // Media sulle righe: costi e tassi dai totali, volumi per riga
+  const avg = useMemo(() => {
+    const t = rows.reduce((a, g) => ({
+      spesa: a.spesa + g.spesa, impression: a.impression + g.impression, clickLink: a.clickLink + g.clickLink,
+      atc: a.atc + g.atc, valore: a.valore + g.valore, hookNum: a.hookNum + g.hookNum, imprVideo: a.imprVideo + g.imprVideo,
+    }), { spesa: 0, impression: 0, clickLink: 0, atc: 0, valore: 0, hookNum: 0, imprVideo: 0 });
+    return {
+      spesa: mean(rows.map((g) => g.spesa)),
+      impr: mean(rows.map((g) => g.impression)),
+      clickLink: mean(rows.map((g) => g.clickLink)),
+      ctrLink: ratio(t.clickLink, t.impression, 100),
+      atc: mean(rows.map((g) => g.atc)),
+      costoAtc: ratio(t.spesa, t.atc),
+      acquisti: mean(rows.map((g) => g.acquisti)),
+      valore: t.valore > 0 ? mean(rows.map((g) => g.valore)) : null,
+      roas: t.valore > 0 ? ratio(t.valore, t.spesa) : null,
+      hook: ratio(t.hookNum, t.imprVideo),
+    };
+  }, [rows]);
+
   if (rows.length === 0) return <EmptyState label="Nessun dato" />;
-  // sort by spesa desc (col 1)
-  const sorted = [...rows].sort((a, b) => (Number(b[1]) || 0) - (Number(a[1]) || 0));
-  const LABELS: Record<string, string> = {
-    valore: "Nome", spesa: "Spesa", impression: "Imp.", click_link: "Click link",
-    ctr_link: "CTR link", atc: "ATC", costo_atc: "Costo/ATC", acquisti: "Acquisti",
-    valore_acq: "Valore", roas: "ROAS", hook_medio: "Hook medio",
-  };
-  const fmt = (col: string, v: unknown): { text: string; color?: string; bold?: boolean } => {
-    const n = Number(v ?? 0);
-    if (v == null || v === "") return { text: "—" };
-    if (col === "valore") return { text: String(v), bold: true };
-    if (col === "spesa" || col === "costo_atc" || col === "valore_acq") return { text: eur(n), bold: col === "spesa" };
-    if (col === "impression" || col === "click_link" || col === "atc" || col === "acquisti") return { text: integer(n) };
-    if (col === "ctr_link" || col === "hook_medio") return { text: pctStr(n, 2) };
-    if (col === "roas") return { text: num(n, 2), color: n >= AD_CFG.ROAS_GOOD ? POSITIVE : n > 0 && n < 1 ? NEGATIVE : undefined, bold: true };
-    return { text: String(v) };
-  };
+  const th = { sort, onSort: toggle };
+  const dash = "—";
+  const fmt = (v: number | null, f: (n: number) => string) => (v == null ? dash : f(v));
+
   return (
     <div style={{ overflowX: "auto" }}>
       <table style={ts.table}>
         <thead><tr>
-          {head.map((c, i) => (
-            <th key={c} style={{ ...ts.th, ...(i === 0 ? {} : ts.thRight) }}>{LABELS[c] ?? c}</th>
-          ))}
+          <SortTh label={nameLabel} sortKey="nome" {...th} />
+          <SortTh label="Spesa" sortKey="spesa" align="right" {...th} />
+          <SortTh label="Imp." sortKey="impr" align="right" {...th} />
+          <SortTh label="Click link" sortKey="clickLink" align="right" {...th} />
+          <SortTh label="CTR link" sortKey="ctrLink" align="right" {...th} />
+          <SortTh label="ATC" sortKey="atc" align="right" {...th} />
+          <SortTh label="Costo/ATC" sortKey="costoAtc" align="right" first="asc" {...th} />
+          <SortTh label="Acquisti" sortKey="acquisti" align="right" {...th} />
+          <SortTh label="Valore" sortKey="valore" align="right" {...th} />
+          <SortTh label="ROAS" sortKey="roas" align="right" {...th} />
+          <SortTh label="Hook medio" sortKey="hook" align="right" title="Solo video, ponderato sulle impression" {...th} />
         </tr></thead>
         <tbody>
-          {sorted.map((r, i) => (
-            <tr key={i}>
-              {head.map((c, ci) => {
-                const val = r[ci];
-                const f = fmt(c, val);
-                const isFirst = ci === 0;
-                return (
-                  <td key={c} style={{
-                    ...ts.tdBase, ...(isFirst ? {} : ts.tdRight),
-                    color: f.color ?? (isFirst ? palette.text : ts.tdBase.color),
-                    fontWeight: f.bold ? 600 : 400,
-                  }}>{f.text}</td>
-                );
-              })}
-            </tr>
-          ))}
+          <tr style={avgRowStyle(palette)}>
+            <td style={{ ...ts.tdBase, color: palette.text, fontWeight: 700, whiteSpace: "nowrap" }} title={AVG_TITLE}>
+              Media <span style={{ fontWeight: 500, color: palette.textDim }}>· {integer(rows.length)} {noun}</span>
+            </td>
+            <AvgTd ts={ts}>{fmt(avg.spesa, eur)}</AvgTd>
+            <AvgTd ts={ts}>{fmt(avg.impr, integer)}</AvgTd>
+            <AvgTd ts={ts}>{fmt(avg.clickLink, integer)}</AvgTd>
+            <AvgTd ts={ts}>{fmt(avg.ctrLink, (v) => pctStr(v, 2))}</AvgTd>
+            <AvgTd ts={ts}>{fmt(avg.atc, (v) => num(v, 1))}</AvgTd>
+            <AvgTd ts={ts} strong>{fmt(avg.costoAtc, eur)}</AvgTd>
+            <AvgTd ts={ts}>{fmt(avg.acquisti, (v) => num(v, 1))}</AvgTd>
+            <AvgTd ts={ts}>{fmt(avg.valore, eur)}</AvgTd>
+            <AvgTd ts={ts} strong>{fmt(avg.roas, (v) => num(v, 2))}</AvgTd>
+            <AvgTd ts={ts}>{fmt(avg.hook, (v) => pctStr(v, 1))}</AvgTd>
+          </tr>
+          {sorted.map((g) => {
+            const d = derived(g);
+            return (
+              <tr key={g.nome}>
+                <td style={{ ...ts.tdBase, color: palette.text, fontWeight: 600 }}>{g.nome}</td>
+                <td style={{ ...ts.tdBase, ...ts.tdRight, fontWeight: 600 }}>{eur(g.spesa)}</td>
+                <td style={{ ...ts.tdBase, ...ts.tdRight }}>{integer(g.impression)}</td>
+                <td style={{ ...ts.tdBase, ...ts.tdRight }}>{integer(g.clickLink)}</td>
+                <td style={{ ...ts.tdBase, ...ts.tdRight }}>{fmt(d.ctrLink, (v) => pctStr(v, 2))}</td>
+                <td style={{ ...ts.tdBase, ...ts.tdRight }}>{integer(g.atc)}</td>
+                <td style={{ ...ts.tdBase, ...ts.tdRight }}>{fmt(d.costoAtc, eur)}</td>
+                <td style={{ ...ts.tdBase, ...ts.tdRight }}>{integer(g.acquisti)}</td>
+                <td style={{ ...ts.tdBase, ...ts.tdRight }}>{g.valore > 0 ? eur(g.valore) : dash}</td>
+                <td style={{
+                  ...ts.tdBase, ...ts.tdRight, fontWeight: 600,
+                  color: d.roas == null ? ts.tdBase.color : d.roas >= AD_CFG.ROAS_GOOD ? POSITIVE : d.roas < 1 ? NEGATIVE : ts.tdBase.color,
+                }}>{fmt(d.roas, (v) => num(v, 2))}</td>
+                <td style={{ ...ts.tdBase, ...ts.tdRight }}>{fmt(d.hook, (v) => pctStr(v, 1))}</td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
@@ -1172,99 +1368,6 @@ function aggregateValutazione(rows: MetaValutazione[]): MetaValutazione[] {
     });
   }
   // Ripristina l'ordinamento originale del motore: prima quelle con verdetto più "caldo"
-  const rank: Record<MetaVerdict, number> = {
-    "SCALA": 0, "PROMETTE": 1, "RINNOVA": 2, "DA RIVEDERE": 3,
-    "SPEGNI": 4, "MANTIENI": 5, "OSSERVA": 6, "IN RACCOLTA": 7,
-  };
-  out.sort((a, b) => (rank[a.verdetto] - rank[b.verdetto]) || (b.spesa - a.spesa));
+  out.sort((a, b) => (VERDICT_RANK[a.verdetto] - VERDICT_RANK[b.verdetto]) || (b.spesa - a.spesa));
   return out;
-}
-
-// ─── Aggregazione grezza dal creative_head (per Performance Creatives Workflow)
-
-export type CreativeMetricsRaw = {
-  nome: string; formato: string; soggetto: string;
-  stato: string; obiettivo: string;
-  spesa: number; impression: number; reach: number; frequenza: number;
-  click: number; ctr: number; cpm: number; cpc: number;
-  lpv: number; atc: number; checkout: number; acquisti: number;
-  valore: number; roas: number;
-  clickLink: number; ctrLink: number; cpcLink: number; lpvRate: number;
-  costoLpv: number; costoAtc: number;
-  hookRate: number; holdRate: number; ritenzione50: number; tempoMedio: number;
-  rankQualita: string; rankEngagement: string; rankConversione: string;
-};
-
-export function toRawMetrics(r: (string | number)[]): CreativeMetricsRaw {
-  return {
-    nome: String(r[0] ?? ""), formato: String(r[1] ?? ""), soggetto: String(r[2] ?? ""),
-    stato: String(r[3] ?? ""), obiettivo: String(r[4] ?? ""),
-    spesa: Number(r[5]) || 0, impression: Number(r[6]) || 0, reach: Number(r[7]) || 0, frequenza: Number(r[8]) || 0,
-    click: Number(r[9]) || 0, ctr: Number(r[10]) || 0, cpm: Number(r[11]) || 0, cpc: Number(r[12]) || 0,
-    lpv: Number(r[13]) || 0, atc: Number(r[14]) || 0, checkout: Number(r[15]) || 0, acquisti: Number(r[16]) || 0,
-    valore: Number(r[17]) || 0, roas: Number(r[18]) || 0,
-    // r[19] = CPA
-    // r[20-22] = ATC rate, checkout rate, purchase rate
-    costoLpv: Number(r[23]) || 0, costoAtc: Number(r[24]) || 0,
-    // r[25] = costo per IC
-    clickLink: Number(r[26]) || 0, ctrLink: Number(r[27]) || 0, cpcLink: Number(r[28]) || 0, lpvRate: Number(r[29]) || 0,
-    hookRate: Number(r[30]) || 0, holdRate: Number(r[31]) || 0,
-    ritenzione50: Number(r[32]) || 0, tempoMedio: Number(r[33]) || 0,
-    rankQualita: String(r[34] ?? "—"), rankEngagement: String(r[35] ?? "—"), rankConversione: String(r[36] ?? "—"),
-  };
-}
-
-// Aggrega raw per nome + formato con la stessa logica del motore
-export function aggregateRawByNameFormato(rows: (string | number)[][]): CreativeMetricsRaw[] {
-  const byKey = new Map<string, CreativeMetricsRaw[]>();
-  for (const r of rows) {
-    const m = toRawMetrics(r);
-    const key = m.nome.toLowerCase().trim() + "|" + m.formato.toLowerCase().trim();
-    if (!key) continue;
-    const arr = byKey.get(key);
-    if (arr) arr.push(m); else byKey.set(key, [m]);
-  }
-  const out: CreativeMetricsRaw[] = [];
-  for (const parts of byKey.values()) {
-    if (parts.length === 1) { out.push(parts[0]); continue; }
-    let spesa = 0, impression = 0, reach = 0, click = 0, lpv = 0, atc = 0, checkout = 0, acquisti = 0, valore = 0, clickLink = 0;
-    let hookNum = 0, holdNum = 0, ret50Num = 0, tempoNum = 0, ctrLinkNum = 0, cpcLinkDenom = 0;
-    let best = parts[0]; let bestSpesa = -1;
-    let stato = parts[0].stato;
-    for (const p of parts) {
-      spesa += p.spesa; impression += p.impression; reach += p.reach; click += p.click;
-      lpv += p.lpv; atc += p.atc; checkout += p.checkout; acquisti += p.acquisti;
-      valore += p.valore; clickLink += p.clickLink;
-      hookNum += (p.hookRate ?? 0) * p.impression;
-      holdNum += (p.holdRate ?? 0) * p.impression;
-      ret50Num += (p.ritenzione50 ?? 0) * p.impression;
-      tempoNum += (p.tempoMedio ?? 0) * p.impression;
-      ctrLinkNum += (p.ctrLink ?? 0) * p.impression;
-      cpcLinkDenom += p.clickLink;
-      if (p.stato === "ACTIVE") stato = "ACTIVE";
-      else if (p.stato === "PAUSED" && stato !== "ACTIVE") stato = "PAUSED";
-      if (p.spesa > bestSpesa) { bestSpesa = p.spesa; best = p; }
-    }
-    out.push({
-      nome: parts[0].nome, formato: parts[0].formato, soggetto: parts[0].soggetto,
-      stato, obiettivo: best.obiettivo,
-      spesa, impression, reach, click, lpv, atc, checkout, acquisti, valore, clickLink,
-      frequenza: reach > 0 ? impression / reach : 0,
-      ctr: impression > 0 ? (click / impression) * 100 : 0,
-      cpm: impression > 0 ? (spesa / impression) * 1000 : 0,
-      cpc: click > 0 ? spesa / click : 0,
-      cpcLink: cpcLinkDenom > 0 ? spesa / cpcLinkDenom : 0,
-      ctrLink: impression > 0 ? ctrLinkNum / impression : 0,
-      lpvRate: click > 0 ? (lpv / click) * 100 : 0,
-      costoLpv: lpv > 0 ? spesa / lpv : 0,
-      costoAtc: atc > 0 ? spesa / atc : 0,
-      roas: spesa > 0 ? valore / spesa : 0,
-      hookRate: impression > 0 ? hookNum / impression : 0,
-      holdRate: impression > 0 ? holdNum / impression : 0,
-      ritenzione50: impression > 0 ? ret50Num / impression : 0,
-      tempoMedio: impression > 0 ? tempoNum / impression : 0,
-      rankQualita: best.rankQualita, rankEngagement: best.rankEngagement, rankConversione: best.rankConversione,
-    });
-  }
-  return out.sort((a, b) => b.spesa - a.spesa);
 }

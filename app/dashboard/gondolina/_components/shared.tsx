@@ -150,6 +150,9 @@ export {
   InfoTooltip, Sparkline,
   eur, eur0, integer, num, pctStr, fmtDate, fmtDateTime,
   calcDelta, invertDeltaColor, type DeltaInfo,
+  type CreativeWindow, WINDOW_DAYS, creativeWindowFor,
+  type SortDir, type SortState, type SortValue, useTableSort, SortTh,
+  ratio, mean, AVG_TITLE, avgRowStyle, useElementWidth,
 } from "../../vitaedna/_components/shared";
 
 // ─── Date range system ────────────────────────────────────────────
@@ -329,7 +332,7 @@ export function DateRangeProvider({
 
 // ─── Nav ──────────────────────────────────────────────────────────
 
-export type TabKey = "panoramica" | "advertising" | "perf-creatives" | "traffico" | "seo" | "salute";
+export type TabKey = "panoramica" | "advertising" | "perf-creatives" | "traffico" | "seo" | "roadmap" | "meetings" | "salute";
 
 export const NavContext = createContext<{ setTab: (t: TabKey) => void }>({ setTab: () => {} });
 export function useNav() { return useContext(NavContext); }
