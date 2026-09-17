@@ -21,6 +21,7 @@ export const DB = {
   portalMeetings: "33137be1-b168-8098-9c5a-d5298d05eb4e",
   pacchetti:         "36337be1-b168-8062-be7d-c9fcd96e222f",
   internalReviews:   "34737be1-b168-8032-b4f6-fd5f2bd1a153",
+  roadmap:           "fd70f18c-a512-4b2c-b516-6b95801a7b44",
 } as const;
 
 export type DatabaseKey = keyof typeof DB;

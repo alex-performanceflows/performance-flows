@@ -15,6 +15,8 @@ import { PerformanceCreativesTab } from "./PerformanceCreativesTab";
 import { TrafficoTab } from "./TrafficoTab";
 import { SEOTab } from "./SEOTab";
 import { SaluteTab } from "./SaluteTab";
+import { RoadmapTab } from "./RoadmapTab";
+import { MeetingsTab } from "./MeetingsTab";
 
 const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
   { key: "panoramica", label: "Panoramica", icon: <IconOverview /> },
@@ -22,6 +24,8 @@ const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
   { key: "perf-creatives", label: "Performance Creatives", icon: <IconFilm /> },
   { key: "traffico", label: "Traffico e conversione", icon: <IconTraffic /> },
   { key: "seo", label: "SEO", icon: <IconSearch /> },
+  { key: "roadmap", label: "Roadmap strategica", icon: <IconRoadmap /> },
+  { key: "meetings", label: "Meetings", icon: <IconMeetings /> },
   { key: "salute", label: "Salute del sistema", icon: <IconHeart /> },
 ];
 
@@ -67,6 +71,8 @@ function DashboardInner() {
   const isDark = theme === "dark";
   const activeLabel = TABS.find((t) => t.key === tab)?.label ?? "";
   const gscLast = data?.gsc?.ultimo_giorno;
+  // Roadmap e meeting arrivano da Notion: non dipendono dal periodo né dai dati del motore
+  const isNotionTab = tab === "roadmap" || tab === "meetings";
 
   return (
     <NavContext.Provider value={navCtx}>
@@ -188,18 +194,20 @@ function DashboardInner() {
 
         {/* Main */}
         <main className="pf-main">
-          {/* Header controls: honesty banner + range picker */}
-          <div className="pf-noprint" style={{ marginBottom: 18 }}>
-            <div style={{
-              display: "flex", justifyContent: "space-between", alignItems: "center",
-              gap: 12, flexWrap: "wrap", marginBottom: 12,
-            }}>
-              <HonestyBanner perimetro={data?.perimetro} palette={palette} />
-              <DateRangePicker />
+          {/* Header controls: honesty banner + range picker (non servono su roadmap e meeting) */}
+          {!isNotionTab && (
+            <div className="pf-noprint" style={{ marginBottom: 18 }}>
+              <div style={{
+                display: "flex", justifyContent: "space-between", alignItems: "center",
+                gap: 12, flexWrap: "wrap", marginBottom: 12,
+              }}>
+                <HonestyBanner perimetro={data?.perimetro} palette={palette} />
+                <DateRangePicker />
+              </div>
             </div>
-          </div>
+          )}
 
-          {error && (
+          {error && !isNotionTab && (
             <div style={{
               background: "rgba(239,68,68,0.10)", border: "1px solid rgba(239,68,68,0.35)",
               color: isDark ? "#fecaca" : "#991b1b",
@@ -221,7 +229,10 @@ function DashboardInner() {
             </div>
           )}
 
-          {loading && !data && <SkeletonPage />}
+          {loading && !data && !isNotionTab && <SkeletonPage />}
+
+          {tab === "roadmap" && <RoadmapTab />}
+          {tab === "meetings" && <MeetingsTab />}
 
           {data && (
             <>
@@ -379,6 +390,8 @@ function IconOverview() { return <svg width="16" height="16" fill="none" stroke=
 function IconAds() { return <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M3 11l18-5v12L3 14v-3z" /><path d="M11.6 16.8a3 3 0 11-5.8-1.6" /></svg>; }
 function IconTraffic() { return <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" /></svg>; }
 function IconSearch() { return <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>; }
+function IconRoadmap() { return <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3V6z" /><line x1="9" y1="3" x2="9" y2="18" /><line x1="15" y1="6" x2="15" y2="21" /></svg>; }
+function IconMeetings() { return <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" /></svg>; }
 function IconHeart() { return <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></svg>; }
 function IconFilm() { return <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18" /><line x1="7" y1="2" x2="7" y2="22" /><line x1="17" y1="2" x2="17" y2="22" /><line x1="2" y1="12" x2="22" y2="12" /><line x1="2" y1="7" x2="7" y2="7" /><line x1="2" y1="17" x2="7" y2="17" /><line x1="17" y1="17" x2="22" y2="17" /><line x1="17" y1="7" x2="22" y2="7" /></svg>; }
 function IconRefresh() { return <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" /><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" /></svg>; }
