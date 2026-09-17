@@ -11,7 +11,12 @@ import { ContentPanel, fmtDay, parseDay, secondaryBtn, useNotionContent, type Co
 import type { RoadmapItem, RoadmapOwner } from "@/lib/client-roadmap";
 
 type RoadmapPayload = { items: RoadmapItem[]; aggiornato: string };
-type View = "lineare" | "kanban";
+type View = "lineare" | "categoria" | "kanban";
+const VIEWS: { key: View; label: string }[] = [
+  { key: "lineare", label: "Lineare" },
+  { key: "categoria", label: "Per categoria" },
+  { key: "kanban", label: "Kanban" },
+];
 
 const CLIENT_NAME = "Gondolina";
 const FASI = ["Onboarding", "Set-up", "A Regime", "Espansione"];
@@ -46,7 +51,10 @@ export function RoadmapTab() {
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [view, setView] = useState<View>(() => {
-    try { return localStorage.getItem(VIEW_KEY) === "kanban" ? "kanban" : "lineare"; } catch { return "lineare"; }
+    try {
+      const saved = localStorage.getItem(VIEW_KEY);
+      return VIEWS.some((v) => v.key === saved) ? (saved as View) : "lineare";
+    } catch { return "lineare"; }
   });
   const [openId, setOpenId] = useState<string | null>(null);
   const { contents, load: loadContent } = useNotionContent("/api/gondolina/roadmap");
@@ -110,9 +118,11 @@ export function RoadmapTab() {
       {data && data.items.length === 0 && <Card><EmptyState label="La roadmap è in preparazione" /></Card>}
 
       {data && data.items.length > 0 && (
-        view === "lineare"
-          ? <LinearView items={data.items} {...rowProps} />
-          : <KanbanView items={data.items} {...rowProps} />
+        view === "kanban"
+          ? <KanbanView items={data.items} {...rowProps} />
+          : view === "categoria"
+            ? <TableView groups={groupByCategory(data.items)} showCategory={false} {...rowProps} />
+            : <TableView groups={groupByMonth(data.items)} showCategory {...rowProps} />
       )}
       <style>{`
         .pf-roadmap-clickable:hover { background: ${palette.buttonHover} !important; }
@@ -126,13 +136,12 @@ export function RoadmapTab() {
 
 function ViewSwitch({ view, onChange }: { view: View; onChange: (v: View) => void }) {
   const { palette } = useTheme();
-  const options: { key: View; label: string }[] = [{ key: "lineare", label: "Lineare" }, { key: "kanban", label: "Kanban" }];
   return (
     <div role="group" aria-label="Vista della roadmap" style={{
       display: "inline-flex", padding: 3, borderRadius: 10,
       border: `1px solid ${palette.cardBorder}`, background: palette.cardBg,
     }}>
-      {options.map((o) => (
+      {VIEWS.map((o) => (
         <button key={o.key} type="button" aria-pressed={view === o.key} onClick={() => onChange(o.key)} style={{
           padding: "0.4rem 0.85rem", borderRadius: 7, border: "none", cursor: "pointer", fontFamily: "inherit",
           fontSize: 12, fontWeight: 600,
@@ -151,29 +160,58 @@ type RowProps = {
   onRetry: (id: string) => void;
 };
 
-// ─── Vista lineare: tabella in ordine di scadenza, per mese ───────
+// ─── Viste a tabella: per mese (lineare) o per categoria ──────────
 
-const LINEAR_COLUMNS = ["Entro", "Attività", "Stato", "Categoria", "A cura di", ""];
+type TableGroup = { key: string; label: React.ReactNode; list: RoadmapItem[] };
 
-function LinearView({ items, openId, contents, onToggle, onRetry }: { items: RoadmapItem[] } & RowProps) {
+/** Vista lineare: attività in ordine di scadenza, raggruppate per mese. */
+function groupByMonth(items: RoadmapItem[]): TableGroup[] {
+  const groups = new Map<string, RoadmapItem[]>();
+  for (const it of [...items].sort(byDate)) {
+    const key = it.entro ? it.entro.slice(0, 7) : "senza-data";
+    groups.set(key, [...(groups.get(key) ?? []), it]);
+  }
+  return [...groups.entries()].map(([key, list]) => {
+    const label = key === "senza-data"
+      ? "Senza data"
+      : parseDay(`${key}-01`).toLocaleDateString("it-IT", { month: "long", year: "numeric" });
+    return { key, label: label.charAt(0).toUpperCase() + label.slice(1), list };
+  });
+}
+
+/** Vista per categoria: categorie in ordine alfabetico, attività per scadenza. */
+function groupByCategory(items: RoadmapItem[]): TableGroup[] {
+  const groups = new Map<string, RoadmapItem[]>();
+  for (const it of [...items].sort(byDate)) {
+    const key = it.categoria ?? "";
+    groups.set(key, [...(groups.get(key) ?? []), it]);
+  }
+  return [...groups.entries()]
+    .sort(([a], [b]) => (a === "" ? 1 : b === "" ? -1 : a.localeCompare(b, "it")))
+    .map(([key, list]) => {
+      const hue = NOTION_TAG_COLORS[list[0].categoriaColor ?? "default"] ?? NOTION_TAG_COLORS.default;
+      return {
+        key: key || "senza-categoria",
+        label: key
+          ? <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
+              <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: "50%", background: hue }} />{key}
+            </span>
+          : "Senza categoria",
+        list,
+      };
+    });
+}
+
+function TableView({ groups, showCategory, openId, contents, onToggle, onRetry }: {
+  groups: TableGroup[];
+  /** Nella vista per categoria la colonna sarebbe ripetitiva. */
+  showCategory: boolean;
+} & RowProps) {
   const { palette } = useTheme();
   const ts = tableStyles(palette);
   // Il dettaglio aperto resta a vista anche con la tabella scrollata in orizzontale
   const { ref: wrapRef, width: wrapWidth } = useElementWidth<HTMLDivElement>();
-
-  const months = useMemo(() => {
-    const groups = new Map<string, RoadmapItem[]>();
-    for (const it of [...items].sort(byDate)) {
-      const key = it.entro ? it.entro.slice(0, 7) : "senza-data";
-      groups.set(key, [...(groups.get(key) ?? []), it]);
-    }
-    return [...groups.entries()].map(([key, list]) => {
-      const label = key === "senza-data"
-        ? "Senza data"
-        : parseDay(`${key}-01`).toLocaleDateString("it-IT", { month: "long", year: "numeric" });
-      return { key, label: label.charAt(0).toUpperCase() + label.slice(1), list };
-    });
-  }, [items]);
+  const columns = ["Entro", "Attività", "Stato", ...(showCategory ? ["Categoria"] : []), "A cura di", ""];
 
   const td: React.CSSProperties = { ...ts.tdBase, verticalAlign: "middle", fontSize: 12 };
 
@@ -183,18 +221,18 @@ function LinearView({ items, openId, contents, onToggle, onRetry }: { items: Roa
         <table className="pf-roadmap-table" style={ts.table}>
           <thead>
             <tr>
-              {LINEAR_COLUMNS.map((c, i) => (
-                <th key={i} style={{ ...ts.th, ...(c === "Attività" ? { width: "40%" } : {}), ...(i === LINEAR_COLUMNS.length - 1 ? { textAlign: "right" as const } : {}) }}>
+              {columns.map((c, i) => (
+                <th key={i} style={{ ...ts.th, ...(c === "Attività" ? { width: "40%" } : {}), ...(i === columns.length - 1 ? { textAlign: "right" as const } : {}) }}>
                   {c || <span style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" }}>Dettagli</span>}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {months.map((m) => (
+            {groups.map((m) => (
               <Fragment key={m.key}>
                 <tr>
-                  <td colSpan={LINEAR_COLUMNS.length} style={{
+                  <td colSpan={columns.length} style={{
                     padding: "16px 10px 6px", borderBottom: `1px solid ${palette.cardBorder}`,
                     fontSize: 11, fontWeight: 700, color: palette.textDim, letterSpacing: "0.08em", textTransform: "uppercase",
                   }}>
@@ -226,9 +264,11 @@ function LinearView({ items, openId, contents, onToggle, onRetry }: { items: Roa
                             <StatusIcon status={it.status} size={13} />{it.status ?? "Da fare"}
                           </span>
                         </td>
-                        <td style={{ ...td, whiteSpace: "nowrap" }}>
-                          {it.categoria ? <CategoryTag name={it.categoria} color={it.categoriaColor} /> : "—"}
-                        </td>
+                        {showCategory && (
+                          <td style={{ ...td, whiteSpace: "nowrap" }}>
+                            {it.categoria ? <CategoryTag name={it.categoria} color={it.categoriaColor} /> : "—"}
+                          </td>
+                        )}
                         <td style={{ ...td, whiteSpace: "nowrap" }}>{it.owner ? OWNER_LABEL[it.owner] : "—"}</td>
                         <td style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
                           {it.hasContent && (
@@ -243,7 +283,7 @@ function LinearView({ items, openId, contents, onToggle, onRetry }: { items: Roa
                       </tr>
                       {isOpen && (
                         <tr>
-                          <td colSpan={LINEAR_COLUMNS.length} style={{ padding: 0, borderBottom: `1px solid ${palette.cardBorder}`, background: palette.divider }}>
+                          <td colSpan={columns.length} style={{ padding: 0, borderBottom: `1px solid ${palette.cardBorder}`, background: palette.divider }}>
                             <div id={panelId} style={{ position: "sticky", left: 0, width: wrapWidth || "100%", boxSizing: "border-box", padding: "14px 18px 18px" }}>
                               <ContentPanel state={contents[it.id]} onRetry={() => onRetry(it.id)} emptyLabel="Nessun dettaglio per questa attività." />
                             </div>
