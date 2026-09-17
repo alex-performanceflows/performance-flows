@@ -5,6 +5,7 @@ import {
   MomiData, useTheme,
   eur0, integer, num, pctStr,
   Card, CardHeader, EmptyState, tableStyles,
+  useTableSort, SortTh,
   type Palette,
 } from "./shared";
 import { ACCENT, POSITIVE, NEGATIVE } from "../config";
@@ -134,7 +135,10 @@ function computeSemafori(data: MomiData): Semaforo[] {
 
 function ClassificazioneAudit({ data, palette }: { data: MomiData; palette: Palette }) {
   const ts = tableStyles(palette);
-  const rows = useMemo(() => (data.meta?.classificazione ?? []).slice().sort((a, b) => Number(b[4]) - Number(a[4])), [data.meta?.classificazione]);
+  const rows = data.meta?.classificazione ?? [];
+  const { sorted, sort, toggle } = useTableSort<(string | number)[]>(rows, (r, key) =>
+    key === "spesa" ? Number(r[4]) || 0 : String(r[Number(key)] ?? ""), { key: "spesa", dir: "desc" });
+  const th = { sort, onSort: toggle };
   return (
     <Card>
       <CardHeader title="Audit classificazione campagne"
@@ -143,14 +147,14 @@ function ClassificazioneAudit({ data, palette }: { data: MomiData; palette: Pale
         <div style={{ overflowX: "auto" }}>
           <table style={ts.table}>
             <thead><tr>
-              <th style={ts.th}>Campagna</th>
-              <th style={ts.th}>Obiettivo</th>
-              <th style={ts.th}>Piatt.</th>
-              <th style={ts.th}>Metodo</th>
-              <th style={{ ...ts.th, ...ts.thRight }}>Spesa</th>
+              <SortTh label="Campagna" sortKey="0" {...th} />
+              <SortTh label="Obiettivo" sortKey="1" {...th} />
+              <SortTh label="Piatt." sortKey="2" {...th} />
+              <SortTh label="Metodo" sortKey="3" {...th} />
+              <SortTh label="Spesa" sortKey="spesa" align="right" {...th} />
             </tr></thead>
             <tbody>
-              {rows.map((r, i) => {
+              {sorted.map((r, i) => {
                 const metodo = String(r[3] ?? "");
                 const isPrefisso = metodo === "prefisso";
                 const isAlias = metodo === "alias";
@@ -180,6 +184,9 @@ function ClassificazioneAudit({ data, palette }: { data: MomiData; palette: Pale
 function CreativeAudit({ data, palette }: { data: MomiData; palette: Palette }) {
   const ts = tableStyles(palette);
   const rows = data.meta?.creative_audit ?? [];
+  const { sorted, sort, toggle } = useTableSort<(string | number)[]>(rows, (r, key) =>
+    key === "spesa" ? Number(r[3]) || 0 : String(r[Number(key)] ?? ""), { key: "spesa", dir: "desc" });
+  const th = { sort, onSort: toggle };
   return (
     <Card>
       <CardHeader title="Audit creatività · formato o angolo mancante"
@@ -191,13 +198,13 @@ function CreativeAudit({ data, palette }: { data: MomiData; palette: Palette }) 
           <div style={{ overflowX: "auto" }}>
             <table style={ts.table}>
               <thead><tr>
-                <th style={ts.th}>Nome</th>
-                <th style={ts.th}>Formato</th>
-                <th style={ts.th}>Angolo</th>
-                <th style={{ ...ts.th, ...ts.thRight }}>Spesa w30</th>
+                <SortTh label="Nome" sortKey="0" {...th} />
+                <SortTh label="Formato" sortKey="1" {...th} />
+                <SortTh label="Angolo" sortKey="2" {...th} />
+                <SortTh label="Spesa w30" sortKey="spesa" align="right" {...th} />
               </tr></thead>
               <tbody>
-                {[...rows].sort((a, b) => Number(b[3]) - Number(a[3])).map((r, i) => (
+                {sorted.map((r, i) => (
                   <tr key={i}>
                     <td style={{ ...ts.tdBase, color: palette.text, fontWeight: 500, fontFamily: "'JetBrains Mono', ui-monospace, monospace", fontSize: 11 }}>{String(r[0])}</td>
                     <td style={{ ...ts.tdBase, color: String(r[1]) === "Altro" ? NEGATIVE : palette.text }}>{String(r[1])}</td>

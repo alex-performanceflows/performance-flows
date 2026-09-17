@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type React from "react";
 
 // ─── Types ────────────────────────────────────────────────────────
@@ -325,7 +325,8 @@ export function CardHeader({ title, right }: { title: string; right?: React.Reac
 }
 
 export function KpiTile({
-  label, value, delta, accent, sub, info, sparkline, sparklineColor, onClick,
+  label, value, delta, accent, sub, info, sparkline, sparklineColor,
+  sparklineLabels, sparklineFormat, sparklineEndColor, onClick,
 }: {
   label: string;
   value: string;
@@ -335,6 +336,9 @@ export function KpiTile({
   info?: string;                    // testo esplicativo mostrato hovering l'icona (i)
   sparkline?: number[];             // serie di valori giornalieri (mini chart in fondo)
   sparklineColor?: string;
+  sparklineLabels?: string[];       // etichetta per punto: abilita l'hover sulla sparkline
+  sparklineFormat?: (v: number) => string;
+  sparklineEndColor?: string;       // evidenzia l'ultimo punto (periodo più recente)
   onClick?: () => void;             // click-through a un'altra tab
 }) {
   const { palette } = useTheme();
@@ -418,6 +422,9 @@ export function KpiTile({
             color={sparklineColor ?? accent ?? "#64CBFF"}
             height={28}
             ariaLabel={`Trend giornaliero ${label}`}
+            labels={sparklineLabels}
+            format={sparklineFormat}
+            endColor={sparklineEndColor}
           />
         )}
       </div>
@@ -613,10 +620,17 @@ export function InfoTooltip({ text, children, maxWidth = 260 }: {
 // ─── Sparkline ────────────────────────────────────────────────────
 
 export function Sparkline({
-  values, color = "#64CBFF", height = 32, ariaLabel,
+  values, color = "#64CBFF", height = 32, ariaLabel, labels, format, endColor,
 }: {
   values: number[]; color?: string; height?: number; ariaLabel?: string;
+  /** Etichetta per punto (es. data): se presente, abilita l'hover con valore. */
+  labels?: string[];
+  format?: (v: number) => string;
+  /** Colore del punto finale, per evidenziare il periodo più recente. */
+  endColor?: string;
 }) {
+  const { palette } = useTheme();
+  const [hover, setHover] = useState<number | null>(null);
   if (!values || values.length < 2) return null;
   const max = Math.max(...values);
   const min = Math.min(...values);
@@ -624,31 +638,82 @@ export function Sparkline({
   const w = 120;
   const h = height;
   const step = w / (values.length - 1);
-  const points = values.map((v, i) => `${(i * step).toFixed(2)},${(h - ((v - min) / range) * h).toFixed(2)}`).join(" ");
+  const yOf = (v: number) => h - ((v - min) / range) * h;
+  const points = values.map((v, i) => `${(i * step).toFixed(2)},${yOf(v).toFixed(2)}`).join(" ");
   // Area path for gradient fill
   const areaD = `M0,${h} L ${points.replace(/,/g, ",").split(" ").join(" L ")} L ${w},${h} Z`;
   const gradId = `sparkGrad-${Math.abs(hashString(color + values.length))}`;
+  const interactive = !!labels && labels.length === values.length;
+  const last = values.length - 1;
+
+  // Punti e guide sono HTML sovrapposto e non SVG: con preserveAspectRatio="none"
+  // un cerchio SVG verrebbe schiacciato in un'ellisse.
+  const dot = (i: number, fill: string, size: number) => (
+    <span style={{
+      position: "absolute", left: `${(i / last) * 100}%`, top: yOf(values[i]),
+      width: size, height: size, borderRadius: "50%", background: fill,
+      boxShadow: `0 0 0 2px ${palette.cardBg}`,
+      transform: "translate(-50%, -50%)", pointerEvents: "none",
+    }} />
+  );
+
+  function onMove(e: React.PointerEvent<HTMLDivElement>) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    if (rect.width <= 0) return;
+    const ratio = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+    setHover(Math.round(ratio * last));
+  }
+
+  const hoverRatio = hover != null ? hover / last : 0;
   return (
-    <svg
-      role="img"
-      aria-label={ariaLabel}
-      viewBox={`0 0 ${w} ${h}`}
-      preserveAspectRatio="none"
-      style={{ display: "block", width: "100%", height, marginTop: 6 }}
+    <div
+      style={{ position: "relative", marginTop: 6, touchAction: interactive ? "pan-y" : undefined }}
+      onPointerMove={interactive ? onMove : undefined}
+      onPointerLeave={interactive ? () => setHover(null) : undefined}
     >
-      <defs>
-        <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.35" />
-          <stop offset="100%" stopColor={color} stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <path d={areaD} fill={`url(#${gradId})`} />
-      <polyline
-        points={points}
-        fill="none" stroke={color} strokeWidth={1.5}
-        strokeLinecap="round" strokeLinejoin="round"
-      />
-    </svg>
+      <svg
+        role="img"
+        aria-label={ariaLabel}
+        viewBox={`0 0 ${w} ${h}`}
+        preserveAspectRatio="none"
+        style={{ display: "block", width: "100%", height }}
+      >
+        <defs>
+          <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="0.35" />
+            <stop offset="100%" stopColor={color} stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <path d={areaD} fill={`url(#${gradId})`} />
+        <polyline
+          points={points}
+          fill="none" stroke={color} strokeWidth={1.5}
+          strokeLinecap="round" strokeLinejoin="round"
+          vectorEffect="non-scaling-stroke"
+        />
+      </svg>
+      {endColor && hover == null && dot(last, endColor, 6)}
+      {interactive && hover != null && (
+        <>
+          <span style={{
+            position: "absolute", left: `${hoverRatio * 100}%`, top: 0, bottom: 0,
+            width: 1, background: palette.textFaint, pointerEvents: "none",
+          }} />
+          {dot(hover, endColor ?? color, 7)}
+          <span style={{
+            position: "absolute", bottom: h + 6, left: `${hoverRatio * 100}%`,
+            transform: hoverRatio < 0.2 ? "translateX(-4px)" : hoverRatio > 0.8 ? "translateX(calc(-100% + 4px))" : "translateX(-50%)",
+            background: palette.tooltipBg, border: `1px solid ${palette.tooltipBorder}`,
+            borderRadius: 6, padding: "3px 7px", whiteSpace: "nowrap",
+            fontSize: 11, lineHeight: 1.35, color: palette.text,
+            boxShadow: "0 4px 14px rgba(0,0,0,0.25)", pointerEvents: "none", zIndex: 5,
+          }}>
+            <span style={{ color: palette.textDim, marginRight: 6 }}>{labels![hover]}</span>
+            <strong style={{ fontVariantNumeric: "tabular-nums" }}>{format ? format(values[hover]) : values[hover]}</strong>
+          </span>
+        </>
+      )}
+    </div>
   );
 }
 
@@ -677,4 +742,153 @@ export function tableStyles(palette: Palette) {
     },
     tdRight: { textAlign: "right" as const },
   };
+}
+
+// ─── Finestra creatività dal periodo globale ──────────────────────
+
+export type CreativeWindow = "w7" | "w30" | "w90";
+
+export const WINDOW_DAYS: Record<CreativeWindow, number> = { w7: 7, w30: 30, w90: 90 };
+
+/**
+ * Il motore esporta le creatività solo aggregate su 7, 30 e 90 giorni: il periodo
+ * scelto in alto viene ricondotto alla finestra più vicina. `exact` è vero solo
+ * quando il preset coincide con una finestra del motore.
+ */
+export function creativeWindowFor(preset: string, days: number): { win: CreativeWindow; exact: boolean } {
+  if (preset === "w7" || preset === "w30" || preset === "w90") return { win: preset, exact: true };
+  if (days <= 18) return { win: "w7", exact: false };
+  if (days <= 60) return { win: "w30", exact: false };
+  return { win: "w90", exact: false };
+}
+
+/** Larghezza visibile di un contenitore: tiene a vista i pannelli di dettaglio nelle tabelle scrollabili. */
+export function useElementWidth<T extends HTMLElement>() {
+  const ref = useRef<T>(null);
+  const [width, setWidth] = useState(0);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setWidth(el.clientWidth));
+    ro.observe(el);
+    setWidth(el.clientWidth);
+    return () => ro.disconnect();
+  }, []);
+  return { ref, width };
+}
+
+// ─── Ordinamento tabelle ──────────────────────────────────────────
+
+export type SortDir = "asc" | "desc";
+export type SortState = { key: string; dir: SortDir } | null;
+export type SortValue = number | string | null | undefined;
+
+/**
+ * Ordina le righe di una tabella al click sull'intestazione.
+ * I valori mancanti (null: es. CPR senza registrazioni, hook su uno statico)
+ * restano sempre in fondo, in entrambe le direzioni.
+ */
+export function useTableSort<T>(
+  rows: T[],
+  getValue: (row: T, key: string) => SortValue,
+  initial: SortState = null,
+) {
+  const [sort, setSort] = useState<SortState>(initial);
+  const getter = useRef(getValue);
+  getter.current = getValue;
+
+  const sorted = useMemo(() => {
+    if (!sort) return rows;
+    const dir = sort.dir === "asc" ? 1 : -1;
+    return rows
+      .map((row, i) => ({ row, i, v: getter.current(row, sort.key) }))
+      .sort((a, b) => {
+        const aMissing = a.v == null || (typeof a.v === "number" && !Number.isFinite(a.v));
+        const bMissing = b.v == null || (typeof b.v === "number" && !Number.isFinite(b.v));
+        if (aMissing || bMissing) return aMissing === bMissing ? a.i - b.i : aMissing ? 1 : -1;
+        const cmp = typeof a.v === "number" && typeof b.v === "number"
+          ? a.v - b.v
+          : String(a.v).localeCompare(String(b.v), "it", { numeric: true, sensitivity: "base" });
+        return cmp !== 0 ? cmp * dir : a.i - b.i;
+      })
+      .map((x) => x.row);
+  }, [rows, sort]);
+
+  const toggle = useCallback((key: string, firstDir: SortDir) => {
+    setSort((s) => (s && s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: firstDir }));
+  }, []);
+
+  return { sorted, sort, toggle, reset: () => setSort(initial) };
+}
+
+/**
+ * Intestazione cliccabile. Primo click: crescente per testi e costi (il migliore
+ * in cima), decrescente per volumi. Il secondo click inverte.
+ */
+export function SortTh({
+  label, sortKey, sort, onSort, align = "left", first, title, style,
+}: {
+  label: React.ReactNode;
+  sortKey: string;
+  sort: SortState;
+  onSort: (key: string, firstDir: SortDir) => void;
+  align?: "left" | "right";
+  /** Direzione al primo click. Default: "asc" a sinistra (testo), "desc" a destra (numeri). */
+  first?: SortDir;
+  title?: string;
+  style?: React.CSSProperties;
+}) {
+  const { palette } = useTheme();
+  const active = sort?.key === sortKey;
+  const dir = active ? sort!.dir : null;
+  return (
+    <th
+      aria-sort={dir === "asc" ? "ascending" : dir === "desc" ? "descending" : "none"}
+      title={title}
+      style={{
+        padding: "0.55rem 0.65rem", textAlign: align,
+        fontSize: 10, fontWeight: 700, color: active ? palette.text : palette.textDim,
+        letterSpacing: "0.05em", textTransform: "uppercase",
+        borderBottom: `1px solid ${palette.divider}`, whiteSpace: "nowrap",
+        ...style,
+      }}
+    >
+      <button
+        type="button"
+        onClick={() => onSort(sortKey, first ?? (align === "right" ? "desc" : "asc"))}
+        style={{
+          display: "inline-flex", alignItems: "center", gap: 4,
+          flexDirection: align === "right" ? "row-reverse" : "row",
+          background: "none", border: "none", padding: 0, margin: 0, cursor: "pointer",
+          font: "inherit", color: "inherit", letterSpacing: "inherit", textTransform: "inherit",
+        }}
+      >
+        <span>{label}</span>
+        <span aria-hidden="true" style={{
+          display: "inline-block", width: 8, textAlign: "center", fontSize: 8,
+          color: active ? palette.text : palette.textFaint, opacity: active ? 1 : 0.7,
+        }}>{dir === "asc" ? "▲" : dir === "desc" ? "▼" : "↕"}</span>
+      </button>
+    </th>
+  );
+}
+
+// ─── Riga "Media" nelle tabelle ───────────────────────────────────
+
+/** Rapporto dei totali: è la media corretta per costi e tassi (ponderata sui volumi). */
+export function ratio(num: number, den: number, scale = 1): number | null {
+  return den > 0 ? (num / den) * scale : null;
+}
+
+/** Media semplice per riga: usata per i volumi (spesa, impression, registrazioni). */
+export function mean(values: number[]): number | null {
+  return values.length ? values.reduce((a, b) => a + b, 0) / values.length : null;
+}
+
+export const AVG_TITLE =
+  "Media delle righe visibili. Costi e tassi sono calcolati sui totali, quindi pesano di più le righe con più volume; spesa, impression e risultati sono la media per riga.";
+
+/** Stile della riga media: fissata in cima al corpo tabella, esclusa dall'ordinamento. */
+export function avgRowStyle(palette: { divider: string; cardBorder: string }): React.CSSProperties {
+  return { background: palette.divider, boxShadow: `inset 0 -1px 0 ${palette.cardBorder}` };
 }

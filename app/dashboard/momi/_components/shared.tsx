@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type React from "react";
 import { isSignupAction } from "../config";
+import { fmtDate as fmtDay, useTheme as useThemeInternal } from "../../vitaedna/_components/shared";
 
 // ─── Types (schema MOMI) ──────────────────────────────────────────
 
@@ -234,8 +235,11 @@ export function DateRangeProvider({
   }, []);
   const setCustomRange = useCallback((r: DateRange | null) => {
     setCustomRangeInner(r);
+    // Un periodo personalizzato vale solo se il preset passa a "custom":
+    // senza questo "Applica" salvava le date ma il range restava quello di prima.
+    if (r) setPresetInner("custom");
     try {
-      if (r) { localStorage.setItem("pf.momi.customStart", r.start); localStorage.setItem("pf.momi.customEnd", r.end); }
+      if (r) { localStorage.setItem("pf.momi.customStart", r.start); localStorage.setItem("pf.momi.customEnd", r.end); localStorage.setItem("pf.momi.preset", "custom"); }
       else { localStorage.removeItem("pf.momi.customStart"); localStorage.removeItem("pf.momi.customEnd"); }
     } catch {}
   }, []);
@@ -301,3 +305,137 @@ export function ga4SignupsInRange(data: MomiData, range: DateRange): number {
   }
   return s;
 }
+
+
+// ─── Serie giornaliere per le sparkline dei KPI ───────────────────
+
+export type DayMap = Map<string, number>;
+export type Spark = { values: number[]; labels: string[] };
+
+function addTo(map: DayMap, day: string, v: number) {
+  map.set(day, (map.get(day) ?? 0) + v);
+}
+
+export type DailyMaps = {
+  metaSpend: DayMap; gadsSpend: DayMap;
+  metaReg: DayMap; gadsReg: DayMap; ga4Signup: DayMap;
+  metaInstall: DayMap; gadsInstall: DayMap;
+  sessions: DayMap; users: DayMap; newUsers: DayMap; engaged: DayMap;
+  gscClicks: DayMap; gscImpr: DayMap; gscPosWeighted: DayMap;
+  gscLast: string | null; ga4First: string | null;
+};
+
+/** Totali per giorno delle metriche che compaiono nei KPI, calcolati una volta per payload. */
+export function useDailyMaps(data: MomiData): DailyMaps {
+  return useMemo(() => {
+    const m: DailyMaps = {
+      metaSpend: new Map(), gadsSpend: new Map(),
+      metaReg: new Map(), gadsReg: new Map(), ga4Signup: new Map(),
+      metaInstall: new Map(), gadsInstall: new Map(),
+      sessions: new Map(), users: new Map(), newUsers: new Map(), engaged: new Map(),
+      gscClicks: new Map(), gscImpr: new Map(), gscPosWeighted: new Map(),
+      gscLast: null, ga4First: data.health?.ga4_first_date ?? data.ga4?.first_date ?? null,
+    };
+    for (const r of data.meta?.campaigns_daily ?? []) {
+      const d = String(r[0]);
+      addTo(m.metaSpend, d, Number(r[4]) || 0);
+      addTo(m.metaInstall, d, Number(r[7]) || 0);
+      addTo(m.metaReg, d, Number(r[8]) || 0);
+    }
+    for (const r of data.gads_daily ?? []) {
+      const d = String(r[0]);
+      addTo(m.gadsSpend, d, Number(r[3]) || 0);
+      if (String(r[2]) === "MULTI_CHANNEL") addTo(m.gadsInstall, d, Number(r[6]) || 0);
+    }
+    for (const r of data.gads_conv_daily ?? []) {
+      if (isSignupAction(String(r[2]))) addTo(m.gadsReg, String(r[0]), Number(r[5]) || 0);
+    }
+    for (const r of data.ga4?.events_daily ?? []) {
+      if (String(r[1]) === "sign_up") addTo(m.ga4Signup, String(r[0]), Number(r[3]) || 0);
+    }
+    for (const r of data.ga4?.daily ?? []) {
+      const d = String(r[0]);
+      addTo(m.sessions, d, Number(r[1]) || 0);
+      addTo(m.users, d, Number(r[2]) || 0);
+      addTo(m.newUsers, d, Number(r[3]) || 0);
+      addTo(m.engaged, d, Number(r[4]) || 0);
+    }
+    for (const r of data.gsc?.daily ?? []) {
+      const d = String(r[0]);
+      const imp = Number(r[2]) || 0;
+      addTo(m.gscClicks, d, Number(r[1]) || 0);
+      addTo(m.gscImpr, d, imp);
+      addTo(m.gscPosWeighted, d, (Number(r[4]) || 0) * imp);
+      if (!m.gscLast || d > m.gscLast) m.gscLast = d;
+    }
+    return m;
+  }, [data]);
+}
+
+/**
+ * Costruisce una sparkline sul range selezionato.
+ *
+ * - `num` da sole: somma per periodo. Con `den`: rapporto dei totali per periodo
+ *   (mai media dei rapporti giornalieri), moltiplicato per `scale`.
+ * - `from`/`to` escludono i giorni senza dati alla fonte (GA4 prima del primo
+ *   giorno, Search Console negli ultimi giorni non ancora rilasciati): lì uno zero
+ *   disegnerebbe un calo che non esiste.
+ * - Oltre ~30 punti i giorni vengono raggruppati, partendo dal più recente.
+ */
+export function buildSpark(
+  range: DateRange,
+  opts: { num: DayMap[]; den?: DayMap[]; scale?: number; from?: string | null; to?: string | null; maxPoints?: number },
+): Spark {
+  const dates: string[] = [];
+  const start = opts.from && opts.from > range.start ? opts.from : range.start;
+  const end = opts.to && opts.to < range.end ? opts.to : range.end;
+  for (let d = start; d <= end; d = addDaysISO(d, 1)) dates.push(d);
+  if (dates.length < 2) return { values: [], labels: [] };
+
+  const size = Math.max(1, Math.ceil(dates.length / (opts.maxPoints ?? 30)));
+  const buckets: string[][] = [];
+  for (let i = dates.length; i > 0; i -= size) buckets.unshift(dates.slice(Math.max(0, i - size), i));
+  // Un primo gruppo incompleto farebbe sembrare un calo iniziale sulle somme
+  if (!opts.den && buckets.length > 2 && buckets[0].length < size) buckets.shift();
+
+  const sum = (maps: DayMap[], days: string[]) =>
+    days.reduce((acc, day) => acc + maps.reduce((a, mp) => a + (mp.get(day) ?? 0), 0), 0);
+
+  const values: number[] = [];
+  const labels: string[] = [];
+  for (const b of buckets) {
+    const n = sum(opts.num, b);
+    let v = n;
+    if (opts.den) {
+      const d = sum(opts.den, b);
+      if (d <= 0) continue;
+      v = (n / d) * (opts.scale ?? 1);
+    }
+    values.push(v);
+    labels.push(b.length === 1 ? fmtDay(b[0]) : `${fmtDay(b[0])}–${fmtDay(b[b.length - 1])}`);
+  }
+  return values.length >= 2 ? { values, labels } : { values: [], labels: [] };
+}
+
+/** Props sparkline pronte per KpiTile: linea recessiva, ultimo periodo in accento. */
+export function useSparkProps(accent: string) {
+  const { palette } = useThemeInternal();
+  return (spark: Spark, format: (v: number) => string) =>
+    spark.values.length >= 2
+      ? {
+          sparkline: spark.values,
+          sparklineLabels: spark.labels,
+          sparklineFormat: format,
+          sparklineColor: palette.textDim,
+          sparklineEndColor: accent,
+        }
+      : {};
+}
+
+// ─── Finestra creatività, ordinamento tabelle, riga media (condivisi) ──
+
+export {
+  type CreativeWindow, WINDOW_DAYS, creativeWindowFor,
+  type SortDir, type SortState, type SortValue, useTableSort, SortTh,
+  ratio, mean, AVG_TITLE, avgRowStyle, useElementWidth,
+} from "../../vitaedna/_components/shared";

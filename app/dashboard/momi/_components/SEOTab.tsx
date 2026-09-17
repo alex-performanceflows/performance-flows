@@ -10,6 +10,8 @@ import {
   calcDelta, invertDeltaColor, integer, num, pctStr, fmtDate,
   Card, CardHeader, KpiTile, EmptyState, tableStyles,
   clipRange, dailyInRange, COMPARE_LABEL,
+  useDailyMaps, buildSpark, useSparkProps,
+  useTableSort, SortTh, ratio, mean, AVG_TITLE, avgRowStyle,
 } from "./shared";
 import { ACCENT, CREAM } from "../config";
 
@@ -32,6 +34,16 @@ export function SEOTab({ data }: { data: MomiData }) {
   const prev = useMemo(() => clippedCompare ? dailyInRange(data.gsc?.daily, clippedCompare) : [], [data.gsc?.daily, clippedCompare]);
 
   const agg = useMemo(() => aggregate(cur), [cur]);
+
+  // Sparkline: si fermano all'ultimo giorno rilasciato da Search Console
+  const dm = useDailyMaps(data);
+  const spark = useSparkProps(ACCENT);
+  const sp = useMemo(() => ({
+    click: buildSpark(range, { num: [dm.gscClicks], to: dm.gscLast }),
+    imp: buildSpark(range, { num: [dm.gscImpr], to: dm.gscLast }),
+    ctr: buildSpark(range, { num: [dm.gscClicks], den: [dm.gscImpr], scale: 100, to: dm.gscLast }),
+    pos: buildSpark(range, { num: [dm.gscPosWeighted], den: [dm.gscImpr], to: dm.gscLast }),
+  }), [dm, range]);
   const aggPrev = useMemo(() => prev.length > 0 ? aggregate(prev) : null, [prev]);
 
   const chart = useMemo(() => cur.map((r, i) => ({
@@ -59,10 +71,10 @@ export function SEOTab({ data }: { data: MomiData }) {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
-        <KpiTile label="Click organici" value={integer(agg.clicks)} delta={calcDelta(agg.clicks, aggPrev?.clicks)} info={`Click da Google organico (${clipped.days}g)`} />
-        <KpiTile label="Impression" value={integer(agg.imps)} delta={calcDelta(agg.imps, aggPrev?.imps)} info={`Impression organiche (${clipped.days}g)`} />
-        <KpiTile label="CTR medio" value={pctStr(agg.ctr, 2)} delta={calcDelta(agg.ctr, aggPrev?.ctr)} info="Click ÷ Impression × 100 (aggregato, non media dei giornalieri)" />
-        <KpiTile label="Posizione media" value={num(agg.position, 2)} delta={invertDeltaColor(calcDelta(agg.position, aggPrev?.position))} info="Ponderata sulle impression. Più bassa è meglio: delta invertito (scende = verde)." />
+        <KpiTile label="Click organici" value={integer(agg.clicks)} delta={calcDelta(agg.clicks, aggPrev?.clicks)} info={`Click da Google organico (${clipped.days}g)`} {...spark(sp.click, integer)} />
+        <KpiTile label="Impression" value={integer(agg.imps)} delta={calcDelta(agg.imps, aggPrev?.imps)} info={`Impression organiche (${clipped.days}g)`} {...spark(sp.imp, integer)} />
+        <KpiTile label="CTR medio" value={pctStr(agg.ctr, 2)} delta={calcDelta(agg.ctr, aggPrev?.ctr)} info="Click ÷ Impression × 100 (aggregato, non media dei giornalieri)" {...spark(sp.ctr, (v) => pctStr(v, 2))} />
+        <KpiTile label="Posizione media" value={num(agg.position, 2)} delta={invertDeltaColor(calcDelta(agg.position, aggPrev?.position))} info="Ponderata sulle impression. Più bassa è meglio: delta invertito (scende = verde). Nella sparkline una linea che scende è un miglioramento." {...spark(sp.pos, (v) => num(v, 1))} />
       </div>
 
       <Card>
@@ -109,25 +121,58 @@ function GscTable({ rows, palette, isPage }: {
   rows: (string | number)[][]; palette: import("./shared").Palette; isPage?: boolean;
 }) {
   const ts = tableStyles(palette);
+  const { sorted, sort, toggle } = useTableSort<(string | number)[]>(rows, (r, key) => {
+    switch (key) {
+      case "nome": return String(r[0]);
+      case "click": return Number(r[1]) || 0;
+      case "imp": return Number(r[2]) || 0;
+      case "ctr": return Number(r[3]) || 0;
+      case "pos": return Number(r[4]) > 0 ? Number(r[4]) : null;
+      default: return null;
+    }
+  });
+  const avg = useMemo(() => {
+    let click = 0, imp = 0, posW = 0;
+    for (const r of rows) {
+      const c = Number(r[1]) || 0, i = Number(r[2]) || 0;
+      click += c; imp += i; posW += (Number(r[4]) || 0) * i;
+    }
+    return {
+      click: mean(rows.map((r) => Number(r[1]) || 0)),
+      imp: mean(rows.map((r) => Number(r[2]) || 0)),
+      ctr: ratio(click, imp, 100),
+      pos: ratio(posW, imp),
+    };
+  }, [rows]);
   if (rows.length === 0) return <EmptyState />;
+  const th = { sort, onSort: toggle };
+  const f = (v: number | null, fmt: (n: number) => string) => (v == null ? "—" : fmt(v));
   return (
     <div style={{ overflowX: "auto", maxHeight: 420 }}>
       <table style={ts.table}>
         <thead><tr>
-          <th style={ts.th}>{isPage ? "Pagina" : "Query"}</th>
-          <th style={{ ...ts.th, ...ts.thRight }}>Click</th>
-          <th style={{ ...ts.th, ...ts.thRight }}>Imp.</th>
-          <th style={{ ...ts.th, ...ts.thRight }}>CTR</th>
-          <th style={{ ...ts.th, ...ts.thRight }}>Pos.</th>
+          <SortTh label={isPage ? "Pagina" : "Query"} sortKey="nome" {...th} />
+          <SortTh label="Click" sortKey="click" align="right" {...th} />
+          <SortTh label="Imp." sortKey="imp" align="right" {...th} />
+          <SortTh label="CTR" sortKey="ctr" align="right" {...th} />
+          <SortTh label="Pos." sortKey="pos" align="right" first="asc" {...th} />
         </tr></thead>
         <tbody>
-          {rows.map((r, i) => {
+          <tr style={avgRowStyle(palette)}>
+            <td style={{ ...ts.tdBase, color: palette.text, fontWeight: 700 }} title={AVG_TITLE}>
+              Media <span style={{ fontWeight: 500, color: palette.textDim }}>· {rows.length} {isPage ? "pagine" : "query"}</span>
+            </td>
+            {[f(avg.click, integer), f(avg.imp, integer), f(avg.ctr, (v) => pctStr(v, 2)), f(avg.pos, (v) => num(v, 1))].map((v, i) => (
+              <td key={i} style={{ ...ts.tdBase, ...ts.tdRight, fontWeight: 600, fontStyle: "italic" }}>{v}</td>
+            ))}
+          </tr>
+          {sorted.map((r) => {
             const pos = Number(r[4]) || 0;
             const opp = pos >= 4 && pos <= 10;
             return (
-              <tr key={i} style={{ background: opp ? "rgba(200,90,63,0.10)" : undefined }}>
+              <tr key={String(r[0])} style={{ background: opp ? "rgba(245,158,11,0.10)" : undefined }}>
                 <td style={{
-                  ...ts.tdBase, color: opp ? ACCENT : palette.text, fontWeight: opp ? 600 : 500,
+                  ...ts.tdBase, color: palette.text, fontWeight: opp ? 600 : 500,
                   maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                   fontFamily: isPage ? "'JetBrains Mono', ui-monospace, monospace" : "inherit",
                   fontSize: isPage ? 11 : 12,
@@ -135,7 +180,7 @@ function GscTable({ rows, palette, isPage }: {
                 <td style={{ ...ts.tdBase, ...ts.tdRight, fontWeight: 600 }}>{integer(Number(r[1]))}</td>
                 <td style={{ ...ts.tdBase, ...ts.tdRight }}>{integer(Number(r[2]))}</td>
                 <td style={{ ...ts.tdBase, ...ts.tdRight }}>{pctStr(Number(r[3]), 2)}</td>
-                <td style={{ ...ts.tdBase, ...ts.tdRight, color: pos > 0 && pos <= 3 ? "#22c55e" : opp ? ACCENT : ts.tdBase.color, fontWeight: 600 }}
+                <td style={{ ...ts.tdBase, ...ts.tdRight, color: pos > 0 && pos <= 3 ? "#22c55e" : opp ? "#f59e0b" : ts.tdBase.color, fontWeight: 600 }}
                   title={opp ? "A un passo dalla prima pagina alta" : pos <= 3 ? "Top 3" : "Oltre la prima pagina"}>
                   {num(pos, 1)}
                 </td>

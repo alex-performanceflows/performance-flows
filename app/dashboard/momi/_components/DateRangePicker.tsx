@@ -17,11 +17,16 @@ export function DateRangePicker() {
   const [open, setOpen] = useState(false);
   const [customStart, setCustomStart] = useState(range.start);
   const [customEnd, setCustomEnd] = useState(range.end);
+  // Date modificate ma non ancora applicate: nella lista risulta già "Personalizzato"
+  const [draftCustom, setDraftCustom] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
+  // Gli input partono sempre dal periodo attivo, qualunque sia il preset
   useEffect(() => {
-    if (preset === "custom") { setCustomStart(range.start); setCustomEnd(range.end); }
-  }, [preset, range.start, range.end]);
+    setCustomStart(range.start);
+    setCustomEnd(range.end);
+    setDraftCustom(false);
+  }, [range.start, range.end, open]);
 
   useEffect(() => {
     if (!open) return;
@@ -32,16 +37,36 @@ export function DateRangePicker() {
 
   const minDate = coverage?.min;
   const maxDate = coverage?.max;
+  const shownPreset: RangePreset = draftCustom ? "custom" : preset;
 
   const rangeLabelText = preset === "custom"
-    ? `${fmtDate(range.start)} – ${fmtDate(range.end)}`
+    ? `${PRESET_LABEL.custom} (${fmtDate(range.start)} – ${fmtDate(range.end)})`
     : `${PRESET_LABEL[preset]} (${fmtDate(range.start)} – ${fmtDate(range.end)})`;
   const compareText = compareRange
     ? `${COMPARE_LABEL[compare]} (${fmtDate(compareRange.start)} – ${fmtDate(compareRange.end)})`
     : "nessuna comparazione";
 
+  const orderOk = !!customStart && !!customEnd && customStart <= customEnd;
+  const coverageOk = (!minDate || customStart >= minDate) && (!maxDate || customEnd <= maxDate);
+  const valid = orderOk && coverageOk;
+
+  function selectPreset(p: RangePreset) {
+    if (p === "custom") {
+      // Si parte dal periodo che si stava guardando, non da un default
+      setCustomRange({ start: range.start, end: range.end, days: range.days });
+      return;
+    }
+    setPreset(p);
+    setOpen(false);
+  }
+
+  function editDate(which: "start" | "end", value: string) {
+    if (which === "start") setCustomStart(value); else setCustomEnd(value);
+    setDraftCustom(true);
+  }
+
   function applyCustom() {
-    if (!customStart || !customEnd || customStart > customEnd) return;
+    if (!valid) return;
     setCustomRange({ start: customStart, end: customEnd, days: daysBetween(customStart, customEnd) });
     setOpen(false);
   }
@@ -84,13 +109,13 @@ export function DateRangePicker() {
             </p>
             <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
               {PRESETS.map((p) => (
-                <button key={p} type="button"
-                  onClick={() => { setPreset(p); if (p !== "custom") setOpen(false); }}
+                <button key={p} type="button" onClick={() => selectPreset(p)}
+                  aria-pressed={shownPreset === p}
                   style={{
                     padding: "0.45rem 0.6rem", borderRadius: 7, border: "none",
-                    background: preset === p ? palette.buttonHover : "transparent",
-                    color: preset === p ? palette.text : palette.textMuted,
-                    fontSize: 12, fontWeight: preset === p ? 700 : 500,
+                    background: shownPreset === p ? palette.buttonHover : "transparent",
+                    color: shownPreset === p ? palette.text : palette.textMuted,
+                    fontSize: 12, fontWeight: shownPreset === p ? 700 : 500,
                     cursor: "pointer", fontFamily: "inherit", textAlign: "left",
                   }}>{PRESET_LABEL[p]}</button>
               ))}
@@ -101,16 +126,28 @@ export function DateRangePicker() {
               <p style={{ margin: "0 0 6px", fontSize: 10, fontWeight: 700, color: palette.textDim, letterSpacing: "0.06em", textTransform: "uppercase" }}>Personalizzato</p>
               <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                 <input type="date" value={customStart} min={minDate} max={customEnd || maxDate}
-                  onChange={(e) => setCustomStart(e.target.value)} style={dateInputStyle(palette)} />
+                  aria-label="Data di inizio"
+                  onChange={(e) => editDate("start", e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") applyCustom(); }}
+                  style={dateInputStyle(palette)} />
                 <span style={{ color: palette.textDim, fontSize: 12 }}>→</span>
                 <input type="date" value={customEnd} min={customStart || minDate} max={maxDate}
-                  onChange={(e) => setCustomEnd(e.target.value)} style={dateInputStyle(palette)} />
-                <button onClick={applyCustom} style={{
+                  aria-label="Data di fine"
+                  onChange={(e) => editDate("end", e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") applyCustom(); }}
+                  style={dateInputStyle(palette)} />
+                <button onClick={applyCustom} disabled={!valid} style={{
                   padding: "0.45rem 0.85rem", borderRadius: 7, border: "none",
                   background: palette.text, color: palette.cardBg,
-                  fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+                  fontSize: 12, fontWeight: 700, fontFamily: "inherit",
+                  cursor: valid ? "pointer" : "not-allowed", opacity: valid ? 1 : 0.45,
                 }}>Applica</button>
               </div>
+              {draftCustom && !orderOk && (
+                <p style={{ margin: "6px 0 0", fontSize: 11, color: palette.textMuted }}>
+                  La data di inizio deve precedere quella di fine.
+                </p>
+              )}
               {coverage && (
                 <p style={{ margin: "6px 0 0", fontSize: 11, color: palette.textDim }}>
                   Dati disponibili: {fmtDate(coverage.min)} – {fmtDate(coverage.max)}

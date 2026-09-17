@@ -276,8 +276,11 @@ export function DateRangeProvider({
   }, []);
   const setCustomRange = useCallback((r: DateRange | null) => {
     setCustomRangeInner(r);
+    // Un periodo personalizzato vale solo se il preset passa a "custom":
+    // senza questo "Applica" salvava le date ma il range restava quello di prima.
+    if (r) setPresetInner("custom");
     try {
-      if (r) { localStorage.setItem("pf.coorie.customStart", r.start); localStorage.setItem("pf.coorie.customEnd", r.end); }
+      if (r) { localStorage.setItem("pf.coorie.customStart", r.start); localStorage.setItem("pf.coorie.customEnd", r.end); localStorage.setItem("pf.coorie.preset", "custom"); }
       else { localStorage.removeItem("pf.coorie.customStart"); localStorage.removeItem("pf.coorie.customEnd"); }
     } catch {}
   }, []);

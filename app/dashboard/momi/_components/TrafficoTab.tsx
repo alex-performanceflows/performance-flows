@@ -10,13 +10,13 @@ import {
   calcDelta, integer, pctStr, fmtDate,
   Card, CardHeader, KpiTile, SectionTitle, EmptyState, tableStyles,
   sumInRange, dailyInRange, COMPARE_LABEL,
+  useDailyMaps, buildSpark, useSparkProps, useTableSort, SortTh,
 } from "./shared";
 import { ACCENT, CREAM, CHART_PALETTE } from "../config";
 
 export function TrafficoTab({ data }: { data: MomiData }) {
   const { palette } = useTheme();
   const { range, compareRange, compare } = useDateRange();
-  const ts = tableStyles(palette);
 
   const sess = sumInRange(data.ga4?.daily, range, 1);
   const users = sumInRange(data.ga4?.daily, range, 2);
@@ -30,8 +30,20 @@ export function TrafficoTab({ data }: { data: MomiData }) {
   const engagedP = compareRange ? sumInRange(data.ga4?.daily, compareRange, 4) : null;
   const engRateP = sessP && sessP > 0 ? ((engagedP ?? 0) / sessP) * 100 : null;
 
+  const dm = useDailyMaps(data);
+  const spark = useSparkProps(ACCENT);
+  const sp = useMemo(() => {
+    const from = dm.ga4First;
+    return {
+      sess: buildSpark(range, { num: [dm.sessions], from }),
+      users: buildSpark(range, { num: [dm.users], from }),
+      newU: buildSpark(range, { num: [dm.newUsers], from }),
+      engaged: buildSpark(range, { num: [dm.engaged], from }),
+      engRate: buildSpark(range, { num: [dm.engaged], den: [dm.sessions], scale: 100, from }),
+    };
+  }, [dm, range]);
+
   // Eventi chiave per piattaforma
-  type EvRow = { platform: string; Click_CTA_Download: number; first_open: number; sign_up: number };
   const eventsPerPlatform = useMemo<EvRow[]>(() => {
     const platforms = ["web", "iOS", "Android"];
     const map: Record<string, EvRow> = {};
@@ -107,45 +119,18 @@ export function TrafficoTab({ data }: { data: MomiData }) {
       </SectionTitle>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
-        <KpiTile label="Sessioni" value={integer(sess)} delta={sessP != null ? calcDelta(sess, sessP) : null} />
-        <KpiTile label="Utenti" value={integer(users)} delta={usersP != null ? calcDelta(users, usersP) : null} />
-        <KpiTile label="Nuovi utenti" value={integer(newU)} delta={newUP != null ? calcDelta(newU, newUP) : null} />
-        <KpiTile label="Sessioni coinvolte" value={integer(engaged)} delta={engagedP != null ? calcDelta(engaged, engagedP) : null} />
-        <KpiTile label="Tasso di coinvolgimento" value={pctStr(engRate, 1)} delta={engRateP != null ? calcDelta(engRate, engRateP) : null} />
+        <KpiTile label="Sessioni" value={integer(sess)} delta={sessP != null ? calcDelta(sess, sessP) : null} {...spark(sp.sess, integer)} />
+        <KpiTile label="Utenti" value={integer(users)} delta={usersP != null ? calcDelta(users, usersP) : null} {...spark(sp.users, integer)} />
+        <KpiTile label="Nuovi utenti" value={integer(newU)} delta={newUP != null ? calcDelta(newU, newUP) : null} {...spark(sp.newU, integer)} />
+        <KpiTile label="Sessioni coinvolte" value={integer(engaged)} delta={engagedP != null ? calcDelta(engaged, engagedP) : null} {...spark(sp.engaged, integer)} />
+        <KpiTile label="Tasso di coinvolgimento" value={pctStr(engRate, 1)} delta={engRateP != null ? calcDelta(engRate, engRateP) : null} {...spark(sp.engRate, (v) => pctStr(v, 1))} />
       </div>
 
       {/* Eventi chiave per piattaforma */}
       <Card>
         <CardHeader title="Eventi chiave per piattaforma"
           right={<span style={{ fontSize: 11, color: palette.textDim }}>Click_CTA_Download → first_open → sign_up</span>} />
-        <div style={{ overflowX: "auto" }}>
-          <table style={ts.table}>
-            <thead><tr>
-              <th style={ts.th}>Piattaforma</th>
-              <th style={{ ...ts.th, ...ts.thRight }}>Click CTA Download</th>
-              <th style={{ ...ts.th, ...ts.thRight }}>First open</th>
-              <th style={{ ...ts.th, ...ts.thRight }}>Sign up</th>
-              <th style={{ ...ts.th, ...ts.thRight }}>Tasso first_open → sign_up</th>
-            </tr></thead>
-            <tbody>
-              {eventsPerPlatform.map((p) => {
-                const rate = p.first_open > 0 ? (p.sign_up / p.first_open) * 100 : 0;
-                const isApp = p.platform === "iOS" || p.platform === "Android";
-                return (
-                  <tr key={p.platform}>
-                    <td style={{ ...ts.tdBase, color: palette.text, fontWeight: 500 }}>{p.platform}</td>
-                    <td style={{ ...ts.tdBase, ...ts.tdRight }}>{integer(p.Click_CTA_Download)}</td>
-                    <td style={{ ...ts.tdBase, ...ts.tdRight }}>{integer(p.first_open)}</td>
-                    <td style={{ ...ts.tdBase, ...ts.tdRight, fontWeight: p.sign_up > 0 ? 600 : 400 }}>{integer(p.sign_up)}</td>
-                    <td style={{ ...ts.tdBase, ...ts.tdRight, color: isApp ? palette.text : palette.textDim, fontWeight: isApp ? 600 : 400 }}>
-                      {isApp ? (p.first_open > 0 ? pctStr(rate, 1) : "—") : "n.a."}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <EventsTable rows={eventsPerPlatform} palette={palette} />
       </Card>
 
       {/* Chart sessioni */}
@@ -195,24 +180,7 @@ export function TrafficoTab({ data }: { data: MomiData }) {
       <Card>
         <CardHeader title={`Tabella canali · ${range.days}g`} />
         {canaliTable.length === 0 ? <EmptyState /> : (
-          <div style={{ overflowX: "auto" }}>
-            <table style={ts.table}>
-              <thead><tr>
-                <th style={ts.th}>Canale</th>
-                <th style={{ ...ts.th, ...ts.thRight }}>Sessioni</th>
-                <th style={{ ...ts.th, ...ts.thRight }}>Utenti</th>
-              </tr></thead>
-              <tbody>
-                {canaliTable.map((r, i) => (
-                  <tr key={i}>
-                    <td style={{ ...ts.tdBase, color: palette.text, fontWeight: 500 }}>{r.canale}</td>
-                    <td style={{ ...ts.tdBase, ...ts.tdRight, fontWeight: 600 }}>{integer(r.sess)}</td>
-                    <td style={{ ...ts.tdBase, ...ts.tdRight }}>{integer(r.users)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <SimpleTable rows={canaliTable.map((c) => [c.canale, c.sess, c.users])} labelHead="Canale" cols={["Sessioni", "Utenti"]} palette={palette} />
         )}
       </Card>
 
@@ -220,47 +188,101 @@ export function TrafficoTab({ data }: { data: MomiData }) {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
         <Card>
           <CardHeader title="Dispositivi · w30" />
-          {devices.length === 0 ? <EmptyState /> : <SimpleTable rows={devices} labelHead="Dispositivo" palette={palette} />}
+          {devices.length === 0 ? <EmptyState /> : <SimpleTable rows={devices} labelHead="Dispositivo" cols={["Sessioni", "Utenti"]} palette={palette} />}
         </Card>
         <Card>
           <CardHeader title="Età · w30" />
-          {age.length === 0 ? <EmptyState label="Demografica non ancora popolata da GA4" /> : <SimpleTable rows={age} labelHead="Fascia" palette={palette} />}
+          {age.length === 0 ? <EmptyState label="Demografica non ancora popolata da GA4" /> : <SimpleTable rows={age} labelHead="Fascia" cols={["Utenti"]} palette={palette} />}
         </Card>
         <Card>
           <CardHeader title="Genere · w30" />
-          {gender.length === 0 ? <EmptyState label="Demografica non ancora popolata da GA4" /> : <SimpleTable rows={gender} labelHead="Genere" palette={palette} />}
+          {gender.length === 0 ? <EmptyState label="Demografica non ancora popolata da GA4" /> : <SimpleTable rows={gender} labelHead="Genere" cols={["Utenti"]} palette={palette} />}
         </Card>
         <Card>
           <CardHeader title="Paesi · w30" />
-          {country.length === 0 ? <EmptyState /> : <SimpleTable rows={country} labelHead="Paese" palette={palette} />}
+          {country.length === 0 ? <EmptyState /> : <SimpleTable rows={country} labelHead="Paese" cols={["Utenti", "Sessioni"]} palette={palette} />}
         </Card>
         <Card>
           <CardHeader title="Regioni · w30" />
-          {region.length === 0 ? <EmptyState /> : <SimpleTable rows={region} labelHead="Regione" palette={palette} />}
+          {region.length === 0 ? <EmptyState /> : <SimpleTable rows={region} labelHead="Regione" cols={["Utenti", "Sessioni"]} palette={palette} />}
         </Card>
       </div>
     </div>
   );
 }
 
-function SimpleTable({ rows, labelHead, palette }: {
-  rows: (string | number)[][]; labelHead: string; palette: import("./shared").Palette;
+type EvRow = { platform: string; Click_CTA_Download: number; first_open: number; sign_up: number };
+
+function EventsTable({ rows, palette }: { rows: EvRow[]; palette: import("./shared").Palette }) {
+  const ts = tableStyles(palette);
+  const isApp = (p: string) => p === "iOS" || p === "Android";
+  const { sorted, sort, toggle } = useTableSort<EvRow>(rows, (r, key) => {
+    switch (key) {
+      case "platform": return r.platform;
+      case "cta": return r.Click_CTA_Download;
+      case "open": return r.first_open;
+      case "signup": return r.sign_up;
+      case "rate": return isApp(r.platform) && r.first_open > 0 ? (r.sign_up / r.first_open) * 100 : null;
+      default: return null;
+    }
+  });
+  const th = { sort, onSort: toggle };
+  return (
+    <div style={{ overflowX: "auto" }}>
+      <table style={ts.table}>
+        <thead><tr>
+          <SortTh label="Piattaforma" sortKey="platform" {...th} />
+          <SortTh label="Click CTA Download" sortKey="cta" align="right" {...th} />
+          <SortTh label="First open" sortKey="open" align="right" {...th} />
+          <SortTh label="Sign up" sortKey="signup" align="right" {...th} />
+          <SortTh label="Tasso first_open → sign_up" sortKey="rate" align="right" {...th} />
+        </tr></thead>
+        <tbody>
+          {sorted.map((p) => {
+            const app = isApp(p.platform);
+            const rate = p.first_open > 0 ? (p.sign_up / p.first_open) * 100 : 0;
+            return (
+              <tr key={p.platform}>
+                <td style={{ ...ts.tdBase, color: palette.text, fontWeight: 500 }}>{p.platform}</td>
+                <td style={{ ...ts.tdBase, ...ts.tdRight }}>{integer(p.Click_CTA_Download)}</td>
+                <td style={{ ...ts.tdBase, ...ts.tdRight }}>{integer(p.first_open)}</td>
+                <td style={{ ...ts.tdBase, ...ts.tdRight, fontWeight: p.sign_up > 0 ? 600 : 400 }}>{integer(p.sign_up)}</td>
+                <td style={{ ...ts.tdBase, ...ts.tdRight, color: app ? palette.text : palette.textDim, fontWeight: app ? 600 : 400 }}>
+                  {app ? (p.first_open > 0 ? pctStr(rate, 1) : "—") : "n.a."}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function SimpleTable({ rows, labelHead, cols, palette }: {
+  rows: (string | number)[][]; labelHead: string;
+  /** Intestazioni delle colonne numeriche, nell'ordine in cui arrivano nel JSON */
+  cols: string[];
+  palette: import("./shared").Palette;
 }) {
   const ts = tableStyles(palette);
+  const { sorted, sort, toggle } = useTableSort<(string | number)[]>(rows, (r, key) =>
+    key === "label" ? String(r[0]) : Number(r[Number(key)]) || 0);
+  const th = { sort, onSort: toggle };
   return (
     <div style={{ overflowX: "auto", maxHeight: 300 }}>
       <table style={ts.table}>
         <thead><tr>
-          <th style={ts.th}>{labelHead}</th>
-          <th style={{ ...ts.th, ...ts.thRight }}>Sessioni</th>
-          {rows[0] && rows[0][2] != null && <th style={{ ...ts.th, ...ts.thRight }}>Utenti</th>}
+          <SortTh label={labelHead} sortKey="label" {...th} />
+          {cols.map((c, i) => <SortTh key={c} label={c} sortKey={String(i + 1)} align="right" {...th} />)}
         </tr></thead>
         <tbody>
-          {rows.map((r, i) => (
-            <tr key={i}>
+          {sorted.map((r) => (
+            <tr key={String(r[0])}>
               <td style={{ ...ts.tdBase, color: palette.text, fontWeight: 500 }}>{String(r[0])}</td>
-              <td style={{ ...ts.tdBase, ...ts.tdRight, fontWeight: 600 }}>{integer(Number(r[1]))}</td>
-              {r[2] != null && <td style={{ ...ts.tdBase, ...ts.tdRight }}>{integer(Number(r[2]))}</td>}
+              {cols.map((c, i) => (
+                <td key={c} style={{ ...ts.tdBase, ...ts.tdRight, fontWeight: i === 0 ? 600 : 400 }}>{integer(Number(r[i + 1]) || 0)}</td>
+              ))}
             </tr>
           ))}
         </tbody>

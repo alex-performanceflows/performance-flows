@@ -11,6 +11,7 @@ import {
   Card, CardHeader, KpiTile, SectionTitle, EmptyState,
   sumInRange, gadsSignupsInRange, ga4SignupsInRange,
   COMPARE_LABEL, isRangeBeforeFirstData,
+  useDailyMaps, buildSpark, useSparkProps,
 } from "./shared";
 import { ACCENT, CREAM, CHART_PALETTE, isSignupAction } from "../config";
 
@@ -21,6 +22,26 @@ export function PanoramicaTab({ data }: { data: MomiData }) {
 
   const ga4First = data.health?.ga4_first_date ?? data.ga4?.first_date;
   const rangeTooEarly = isRangeBeforeFirstData(range, ga4First);
+
+  // ─── Sparkline sotto i KPI ─────────────────────────────────────
+  const dm = useDailyMaps(data);
+  const spark = useSparkProps(ACCENT);
+  const sp = useMemo(() => {
+    const spend = [dm.metaSpend, dm.gadsSpend];
+    const reg = [dm.metaReg, dm.gadsReg];
+    const install = [dm.metaInstall, dm.gadsInstall];
+    return {
+      spesa: buildSpark(range, { num: spend }),
+      reg: buildSpark(range, { num: reg }),
+      cpr: buildSpark(range, { num: spend, den: reg }),
+      regGa4: buildSpark(range, { num: [dm.ga4Signup], from: dm.ga4First }),
+      copertura: buildSpark(range, { num: reg, den: [dm.ga4Signup], scale: 100, from: dm.ga4First }),
+      install: buildSpark(range, { num: install }),
+      cpi: buildSpark(range, { num: spend, den: install }),
+      sessioni: buildSpark(range, { num: [dm.sessions], from: dm.ga4First }),
+      click: buildSpark(range, { num: [dm.gscClicks], to: dm.gscLast }),
+    };
+  }, [dm, range]);
 
   // ─── Aggregati sul range ────────────────────────────────────────
 
@@ -168,27 +189,36 @@ export function PanoramicaTab({ data }: { data: MomiData }) {
       {/* Riga KPI 1 */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
         <KpiTile label="Spesa totale" value={eur0(spesaTot)} delta={spesaTotPrev != null ? calcDelta(spesaTot, spesaTotPrev) : null}
-          info={`Meta ${eur0(spesaMeta)} + Google ${eur0(spesaGads)}`} accent={ACCENT} onClick={() => setTab("advertising")} />
+          info={`Meta ${eur0(spesaMeta)} + Google ${eur0(spesaGads)}`} accent={ACCENT} onClick={() => setTab("advertising")}
+          {...spark(sp.spesa, eur0)} />
         <KpiTile label="Registrazioni attribuite" value={integer(regAttr)} delta={regAttrPrev != null ? calcDelta(regAttr, regAttrPrev) : null}
-          info={`Meta ${integer(regMeta)} + Google ${integer(regGads)}`} onClick={() => setTab("advertising")} />
+          info={`Meta ${integer(regMeta)} + Google ${integer(regGads)}`} onClick={() => setTab("advertising")}
+          {...spark(sp.reg, integer)} />
         <KpiTile label="CPR blended" value={regAttr > 0 ? eur(cprBlended) : "—"} delta={cprBlendedPrev != null ? invertDeltaColor(calcDelta(cprBlended, cprBlendedPrev)) : null}
-          info="Spesa totale ÷ registrazioni attribuite. Delta invertito: scendere è positivo." accent={ACCENT} />
+          info="Spesa totale ÷ registrazioni attribuite. Delta invertito: scendere è positivo." accent={ACCENT}
+          {...spark(sp.cpr, eur)} />
         <KpiTile label="Registrazioni GA4" value={integer(regGa4)} delta={regGa4Prev != null ? calcDelta(regGa4, regGa4Prev) : null}
-          info="Totale reale — evento sign_up da GA4 su tutte le piattaforme (web / iOS / Android)" />
+          info="Totale reale — evento sign_up da GA4 su tutte le piattaforme (web / iOS / Android)"
+          {...spark(sp.regGa4, integer)} />
         <KpiTile label="Copertura attribuzione" value={regGa4 > 0 ? pctStr(coverage, 1) : "—"} delta={coveragePrev != null ? calcDelta(coverage, coveragePrev) : null}
-          info="Registrazioni attribuite ÷ registrazioni GA4. Sotto 70% c'è tracking mancante o traffico molto organico." />
+          info="Registrazioni attribuite ÷ registrazioni GA4. Sotto 70% c'è tracking mancante o traffico molto organico."
+          {...spark(sp.copertura, (v) => pctStr(v, 1))} />
       </div>
 
       {/* Riga KPI 2 */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
         <KpiTile label="Install totali" value={integer(installTot)} delta={installTotPrev != null ? calcDelta(installTot, installTotPrev) : null}
-          info={`Meta ${integer(installMeta)} + Google ${integer(installGads)}`} />
+          info={`Meta ${integer(installMeta)} + Google ${integer(installGads)}`}
+          {...spark(sp.install, integer)} />
         <KpiTile label="CPI blended" value={installTot > 0 ? eur(cpi) : "—"} delta={cpiPrev != null ? invertDeltaColor(calcDelta(cpi, cpiPrev)) : null}
-          info="Spesa totale ÷ install. Delta invertito: scendere è positivo." />
+          info="Spesa totale ÷ install. Delta invertito: scendere è positivo."
+          {...spark(sp.cpi, eur)} />
         <KpiTile label="Sessioni GA4" value={integer(sessCur)} delta={sessPrev != null ? calcDelta(sessCur, sessPrev) : null}
-          info="Sessioni sul sito sul range" onClick={() => setTab("traffico")} />
+          info="Sessioni sul sito sul range" onClick={() => setTab("traffico")}
+          {...spark(sp.sessioni, integer)} />
         <KpiTile label="Click organici" value={integer(clickOrg)} delta={clickOrgPrev != null ? calcDelta(clickOrg, clickOrgPrev) : null}
-          info="Click da Google organico (Search Console). Ritardo ~3g." onClick={() => setTab("seo")} />
+          info="Click da Google organico (Search Console). Ritardo ~3g." onClick={() => setTab("seo")}
+          {...spark(sp.click, integer)} />
         <KpiTile label="Frequenza account Meta" value={freqW30 != null ? num(freqW30, 2) : "—"}
           info="Frequenza media dell'account su 30 giorni (dato fisso, non varia col range). Sopra 3 iniziare ad allargare il pubblico." />
       </div>
