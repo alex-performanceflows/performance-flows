@@ -1,6 +1,7 @@
 "use client";
 
 import ScrollReveal from "@/components/ui/ScrollReveal";
+import Marquee from "@/components/ui/Marquee";
 
 // width/height = rapporto d'aspetto intrinseco del file: serve al browser per
 // riservare lo spazio prima del caricamento (con w-auto e nessuna dimensione
@@ -15,17 +16,18 @@ const partners = [
 
 export default function Partners() {
   return (
-    <section className="bg-white border-b border-gray-100 py-10">
-      <div className="max-w-6xl mx-auto px-4">
+    <section className="bg-white border-b border-[color:var(--rule)] py-12 md:py-14">
+      <div className="max-w-[88rem] mx-auto px-6 md:px-10">
         <ScrollReveal>
-          <div className="flex flex-col lg:flex-row items-center justify-center gap-8 lg:gap-12">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest whitespace-nowrap">
-              Partner ufficiali
-            </p>
-            <div className="w-px h-8 bg-gray-200 hidden lg:block" />
-            <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-6 md:gap-x-12">
+          <div className="flex flex-col lg:flex-row lg:items-center gap-8 lg:gap-14">
+            <div className="flex items-center gap-4 flex-shrink-0">
+              <span className="h-px w-6 bg-brand-orange/70" aria-hidden="true" />
+              <p className="eyebrow text-brand-text-light whitespace-nowrap">Partner ufficiali</p>
+            </div>
+
+            <Marquee className="flex-1" durationSeconds={42}>
               {partners.map((partner) => (
-                <div key={partner.name} title={partner.name}>
+                <div key={partner.name} title={partner.name} className="desaturate-hover flex-shrink-0">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={partner.src}
@@ -36,7 +38,7 @@ export default function Partners() {
                   />
                 </div>
               ))}
-            </div>
+            </Marquee>
           </div>
         </ScrollReveal>
       </div>

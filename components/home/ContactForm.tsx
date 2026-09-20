@@ -48,45 +48,52 @@ export default function ContactForm() {
   };
 
   return (
-    <section id="contatto" className="relative bg-brand-blue overflow-hidden py-16 md:py-24">
-      {/* Background pattern */}
+    <section id="contatto" className="grain relative bg-[#0b1152] overflow-hidden py-24 md:py-36">
       <div
-        className="absolute inset-0 opacity-5"
+        className="absolute inset-0 pointer-events-none"
         style={{
-          backgroundImage: "radial-gradient(circle, #ffffff 1px, transparent 1px)",
-          backgroundSize: "28px 28px",
+          background:
+            "radial-gradient(90% 60% at 50% 0%, rgba(196,123,34,0.14) 0%, transparent 60%), linear-gradient(180deg, #0b1152 0%, #0a0f42 100%)",
         }}
       />
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-brand-orange/10 rounded-full blur-3xl pointer-events-none" />
+      {/* Trama di punti finissima: dà materia al fondo senza disegnare nulla */}
+      <div
+        className="absolute inset-0 opacity-[0.045] pointer-events-none"
+        style={{
+          backgroundImage: "radial-gradient(circle, #ffffff 1px, transparent 1px)",
+          backgroundSize: "32px 32px",
+        }}
+      />
 
-      <div className="relative max-w-5xl mx-auto px-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+      <div className="relative z-10 max-w-[76rem] mx-auto px-6 md:px-10">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-14 md:gap-20 items-center">
 
           {/* Left: copy */}
           <ScrollReveal>
             <div className="text-white">
-              <p className="text-brand-orange font-semibold text-sm uppercase tracking-widest mb-4">Parliamone</p>
-              <h2 className="text-3xl md:text-4xl font-bold mb-6 leading-tight">
+              <div className="flex items-center gap-4 mb-6">
+                <span className="h-px w-8 bg-brand-orange/70" aria-hidden="true" />
+                <p className="eyebrow text-brand-orange">Parliamone</p>
+              </div>
+              <h2 className="display-2 mb-7">
                 Raccontaci del tuo progetto
               </h2>
-              <p className="text-blue-200 text-lg mb-8 leading-relaxed">
+              <p className="lead text-white/60 mb-10">
                 Compila il form e ti ricontattiamo entro 24 ore. Ci serve capire dove sei
                 oggi per dirti con onestà se possiamo esserti utili.
               </p>
-              <ul className="space-y-4">
+              <ul className="border-t border-[color:var(--rule-invert)]">
                 {[
                   "Una call 1:1 di 30 minuti, senza slide",
                   "Guardiamo insieme numeri, margini e campagne",
                   "Ti diciamo dove lasci profitto sul tavolo",
                   "Se non c'è fit, te lo diciamo subito",
                 ].map((item) => (
-                  <li key={item} className="flex items-center gap-3 text-blue-100">
-                    <span className="w-5 h-5 rounded-full bg-brand-orange/20 border border-brand-orange/40 flex items-center justify-center flex-shrink-0">
-                      <svg className="w-3 h-3 text-brand-orange" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
-                    </span>
-                    <span className="text-sm font-medium">{item}</span>
+                  <li key={item} className="flex items-start gap-4 py-3.5 border-b border-[color:var(--rule-invert)] text-white/75">
+                    <svg className="w-4 h-4 mt-0.5 flex-shrink-0 text-brand-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span className="text-sm">{item}</span>
                   </li>
                 ))}
               </ul>
@@ -96,7 +103,7 @@ export default function ContactForm() {
           {/* Right: form */}
           <ScrollReveal delay={0.15}>
             {status === "success" ? (
-              <div className="bg-white rounded-2xl p-8 text-center shadow-2xl">
+              <div className="bg-white rounded-xl p-10 text-center border border-black/5 shadow-[0_30px_90px_-40px_rgba(0,0,0,0.6)]">
                 <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -108,64 +115,64 @@ export default function ContactForm() {
             ) : (
               <form
                 onSubmit={handleSubmit(onSubmit)}
-                className="bg-white rounded-2xl shadow-2xl p-7 space-y-4"
+                className="bg-white rounded-xl border border-black/5 shadow-[0_30px_90px_-40px_rgba(0,0,0,0.6)] p-8 space-y-5"
               >
                 <div className="grid grid-cols-2 gap-4">
                   <div className="col-span-2">
-                    <label className="block text-xs font-semibold text-brand-text mb-1.5 uppercase tracking-wide">
+                    <label className="block eyebrow text-brand-text-light mb-2">
                       Nome e Cognome *
                     </label>
                     <input
                       {...register("name", { required: true })}
                       type="text"
                       placeholder="Mario Rossi"
-                      className={`w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition ${errors.name ? "border-red-300" : "border-gray-200"}`}
+                      className={`w-full border rounded-md px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-orange/25 focus:border-brand-orange/60 transition ${errors.name ? "border-red-300" : "border-[color:var(--rule-strong)]"}`}
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-brand-text mb-1.5 uppercase tracking-wide">
+                    <label className="block eyebrow text-brand-text-light mb-2">
                       Email *
                     </label>
                     <input
                       {...register("email", { required: true, pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/ })}
                       type="email"
                       placeholder="mario@tuonegozio.it"
-                      className={`w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition ${errors.email ? "border-red-300" : "border-gray-200"}`}
+                      className={`w-full border rounded-md px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-orange/25 focus:border-brand-orange/60 transition ${errors.email ? "border-red-300" : "border-[color:var(--rule-strong)]"}`}
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-brand-text mb-1.5 uppercase tracking-wide">
+                    <label className="block eyebrow text-brand-text-light mb-2">
                       Telefono
                     </label>
                     <input
                       {...register("phone")}
                       type="tel"
                       placeholder="+39 333 000 0000"
-                      className="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition"
+                      className="w-full border border-[color:var(--rule-strong)] rounded-md px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-orange/25 focus:border-brand-orange/60 transition"
                     />
                   </div>
 
                   <div className="col-span-2">
-                    <label className="block text-xs font-semibold text-brand-text mb-1.5 uppercase tracking-wide">
+                    <label className="block eyebrow text-brand-text-light mb-2">
                       Nome della tua attività *
                     </label>
                     <input
                       {...register("business", { required: true })}
                       type="text"
                       placeholder="Il tuo negozio o brand"
-                      className={`w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition ${errors.business ? "border-red-300" : "border-gray-200"}`}
+                      className={`w-full border rounded-md px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-orange/25 focus:border-brand-orange/60 transition ${errors.business ? "border-red-300" : "border-[color:var(--rule-strong)]"}`}
                     />
                   </div>
 
                   <div className="col-span-2">
-                    <label className="block text-xs font-semibold text-brand-text mb-1.5 uppercase tracking-wide">
+                    <label className="block eyebrow text-brand-text-light mb-2">
                       Il tuo store è su che piattaforma? *
                     </label>
                     <select
                       {...register("platform", { required: true })}
-                      className={`w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue bg-white transition ${errors.platform ? "border-red-300" : "border-gray-200"}`}
+                      className={`w-full border rounded-md px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-orange/25 focus:border-brand-orange/60 bg-white transition ${errors.platform ? "border-red-300" : "border-[color:var(--rule-strong)]"}`}
                     >
                       <option value="">Seleziona la piattaforma</option>
                       <option value="shopify">Shopify</option>
@@ -183,12 +190,12 @@ export default function ContactForm() {
                   </div>
 
                   <div className="col-span-2">
-                    <label className="block text-xs font-semibold text-brand-text mb-1.5 uppercase tracking-wide">
+                    <label className="block eyebrow text-brand-text-light mb-2">
                       Spesa mensile in advertising *
                     </label>
                     <select
                       {...register("budget", { required: true })}
-                      className={`w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue bg-white transition ${errors.budget ? "border-red-300" : "border-gray-200"}`}
+                      className={`w-full border rounded-md px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-orange/25 focus:border-brand-orange/60 bg-white transition ${errors.budget ? "border-red-300" : "border-[color:var(--rule-strong)]"}`}
                     >
                       <option value="">Seleziona un range</option>
                       <option value="0-3000">Meno di €3.000</option>
@@ -202,15 +209,15 @@ export default function ContactForm() {
                 <button
                   type="submit"
                   disabled={status === "loading"}
-                  className="w-full bg-brand-orange text-white font-bold py-4 rounded-xl hover:bg-brand-orange-light transition-all disabled:opacity-60 text-base flex items-center justify-center gap-2 shadow-lg shadow-brand-orange/20"
+                  className="btn-sweep arrow-slide w-full bg-brand-orange text-white font-semibold py-4 rounded-full transition-colors disabled:opacity-60 text-[15px] flex items-center justify-center gap-3"
                 >
                   {status === "loading" ? (
-                    "Invio in corso..."
+                    <span>Invio in corso...</span>
                   ) : (
                     <>
-                      Raccontaci del tuo progetto
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                      <span>Raccontaci del tuo progetto</span>
+                      <svg className="arrow w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M17 8l4 4m0 0l-4 4m4-4H3" />
                       </svg>
                     </>
                   )}

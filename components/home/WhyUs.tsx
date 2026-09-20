@@ -1,6 +1,7 @@
 "use client";
 
-import ScrollReveal from "@/components/ui/ScrollReveal";
+import ScrollReveal, { RevealLine } from "@/components/ui/ScrollReveal";
+import SectionHeading from "@/components/ui/SectionHeading";
 
 const levers = [
   {
@@ -67,41 +68,56 @@ const levers = [
 
 export default function WhyUs() {
   return (
-    <section className="bg-brand-blue py-16 md:py-24">
-      <div className="max-w-6xl mx-auto px-4">
-        <ScrollReveal>
-          <div className="text-center mb-10 md:mb-14">
-            <p className="text-brand-orange font-medium text-xs uppercase tracking-[0.18em] mb-4">Il nostro approccio</p>
-            <h2 className="text-4xl md:text-5xl text-white mb-5">
-              Perché lavorare con noi?
-            </h2>
-            <p className="text-blue-200/70 text-lg max-w-2xl mx-auto">
+    <section className="grain relative bg-[#0b1152] py-24 md:py-36">
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background:
+            "radial-gradient(100% 70% at 85% 0%, rgba(196,123,34,0.12) 0%, transparent 55%), linear-gradient(180deg, #0b1152 0%, #0a0f42 100%)",
+        }}
+      />
+
+      <div className="relative z-10 max-w-[88rem] mx-auto px-6 md:px-10">
+        <SectionHeading
+          eyebrow="Il nostro approccio"
+          title="Perché lavorare con noi?"
+          tone="dark"
+          align="center"
+          lead={
+            <>
               Siamo un team specializzato in performance marketing per e-commerce
               Shopify con un approccio{" "}
-              <strong className="text-white/90">Profit-first</strong>: prima il margine,
+              <strong className="text-white font-medium">Profit-first</strong>: prima il margine,
               poi la spesa. Il metodo{" "}
-              <strong className="text-white/90">ProfitFlow™</strong> allinea 6 leve, dal
+              <strong className="text-white font-medium">ProfitFlow™</strong> allinea 6 leve, dal
               primo clic al secondo ordine:
-            </p>
-          </div>
-        </ScrollReveal>
+            </>
+          }
+          className="mb-16 md:mb-24"
+        />
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <RevealLine tone="dark" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
           {levers.map((lever, i) => (
-            <ScrollReveal key={lever.title} delay={i * 0.08}>
-              <div className="group bg-white/[0.05] border border-white/10 rounded-2xl p-6 h-full hover:bg-white/[0.09] hover:border-brand-orange/30 transition-all duration-300">
-                <div className="flex items-start gap-4 mb-4">
-                  <div className="flex-shrink-0 w-11 h-11 rounded-xl bg-white/10 text-white flex items-center justify-center group-hover:bg-brand-orange group-hover:text-white transition-colors duration-300">
-                    {lever.icon}
-                  </div>
-                  <span className="text-3xl text-white/10 group-hover:text-brand-orange/40 transition-colors leading-none mt-1">
+            <ScrollReveal key={lever.title} delay={(i % 3) * 0.08}>
+              <div className="group relative h-full px-0 md:px-8 lg:px-10 first:lg:pl-0 py-9 md:py-11 border-b border-[color:var(--rule-invert)] md:[&:nth-child(even)]:border-l lg:[&:nth-child(even)]:border-l-0 lg:[&:not(:nth-child(3n+1))]:border-l lg:border-[color:var(--rule-invert)]">
+                <span
+                  aria-hidden="true"
+                  className="absolute left-0 top-[-1px] h-px w-full bg-brand-orange origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]"
+                />
+                <div className="flex items-center gap-4 mb-7">
+                  <span className="index-num text-xs text-white/30 group-hover:text-brand-orange transition-colors duration-500">
                     {lever.num}
                   </span>
+                  <span className="h-px flex-1 bg-white/10 group-hover:bg-brand-orange/40 transition-colors duration-500" aria-hidden="true" />
+                  <span className="text-white/60 group-hover:text-brand-orange transition-colors duration-500">
+                    {lever.icon}
+                  </span>
                 </div>
-                <h3 className="text-sm font-semibold text-white mb-2">
+                <h3 className="text-[17px] font-semibold text-white mb-3 tracking-[-0.01em]">
                   {lever.title}
                 </h3>
-                <p className="text-blue-200/60 text-sm leading-relaxed">
+                <p className="text-white/55 text-[14px] leading-relaxed max-w-sm">
                   {lever.desc}
                 </p>
               </div>
@@ -109,17 +125,12 @@ export default function WhyUs() {
           ))}
         </div>
 
-        <ScrollReveal delay={0.5}>
-          <div className="mt-10 border-t border-white/10 pt-10 text-center">
-            <p className="text-lg md:text-xl text-white/70 font-light">
-              <strong className="text-white font-semibold">Risultato:</strong> meno sprechi, CPA sostenibile, più
-              margine per ordine e{" "}
-              <span className="text-brand-orange font-semibold">
-                crescita profittevole
-              </span>
-              .
-            </p>
-          </div>
+        <ScrollReveal delay={0.2}>
+          <p className="font-display mt-16 md:mt-20 display-3 font-normal text-white/75 max-w-4xl mx-auto text-center leading-snug tracking-[-0.01em]">
+            <strong className="text-white font-semibold">Risultato:</strong> meno sprechi, CPA sostenibile, più
+            margine per ordine e{" "}
+            <span className="text-brand-orange">crescita profittevole</span>.
+          </p>
         </ScrollReveal>
       </div>
     </section>

@@ -1,6 +1,7 @@
 "use client";
 
-import ScrollReveal from "@/components/ui/ScrollReveal";
+import ScrollReveal, { RevealLine } from "@/components/ui/ScrollReveal";
+import SectionHeading from "@/components/ui/SectionHeading";
 
 const systems = [
   {
@@ -35,36 +36,34 @@ const systems = [
 
 export default function Systems() {
   return (
-    <section id="sistemi" className="bg-brand-gray py-16 md:py-24">
-      <div className="max-w-6xl mx-auto px-4">
-        <ScrollReveal>
-          <div className="text-center mb-10 md:mb-12 max-w-2xl mx-auto">
-            <p className="text-brand-orange font-semibold text-sm uppercase tracking-[0.18em] mb-3">
-              I nostri sistemi
-            </p>
-            <h2 className="text-3xl md:text-4xl font-bold text-brand-blue mb-4">
-              Il tuo store non resta mai senza qualcuno che guarda
-            </h2>
-            <p className="text-brand-text-light text-lg leading-relaxed">
-              Abbiamo costruito sistemi AI che sorvegliano campagne, spesa e margine ogni
-              giorno, e ci avvisano quando qualcosa si muove. Le decisioni restano
-              nostre: la tecnologia serve a farci arrivare prima, non a sostituire il
-              giudizio.
-            </p>
-          </div>
-        </ScrollReveal>
+    <section id="sistemi" className="paper-grain bg-brand-paper py-24 md:py-36">
+      <div className="max-w-[88rem] mx-auto px-6 md:px-10">
+        <SectionHeading
+          eyebrow="I nostri sistemi"
+          title="Il tuo store non resta mai senza qualcuno che guarda"
+          lead="Abbiamo costruito sistemi AI che sorvegliano campagne, spesa e margine ogni giorno, e ci avvisano quando qualcosa si muove. Le decisioni restano nostre: la tecnologia serve a farci arrivare prima, non a sostituire il giudizio."
+          align="center"
+          className="mb-16 md:mb-24 max-w-3xl mx-auto"
+        />
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <RevealLine />
+        <div className="grid grid-cols-1 md:grid-cols-3">
           {systems.map((s, i) => (
-            <ScrollReveal key={s.title} delay={i * 0.12}>
-              <div className="group bg-white rounded-2xl p-7 h-full border border-black/[0.06] hover:border-brand-orange/30 hover:shadow-md transition-all duration-300">
-                <div className="w-11 h-11 rounded-xl bg-brand-blue text-white flex items-center justify-center mb-5 group-hover:bg-brand-orange transition-colors duration-300">
-                  {s.icon}
+            <ScrollReveal key={s.title} delay={i * 0.1}>
+              <div className="group h-full px-0 md:px-10 first:md:pl-0 last:md:pr-0 py-9 md:py-12 border-b md:border-b-0 border-[color:var(--rule)] md:border-l first:md:border-l-0">
+                <div className="flex items-center gap-4 mb-7">
+                  <span className="index-num text-xs text-brand-text-light/50 group-hover:text-brand-orange transition-colors duration-500">
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                  <span className="h-px flex-1 bg-[color:var(--rule)] group-hover:bg-brand-orange/40 transition-colors duration-500" aria-hidden="true" />
+                  <span className="text-brand-ink/70 group-hover:text-brand-orange transition-colors duration-500">
+                    {s.icon}
+                  </span>
                 </div>
-                <h3 className="text-base font-bold text-brand-text mb-2 leading-snug">
+                <h3 className="text-[17px] font-semibold text-brand-ink mb-3 leading-snug tracking-[-0.01em]">
                   {s.title}
                 </h3>
-                <p className="text-brand-text-light text-sm leading-relaxed">{s.desc}</p>
+                <p className="text-brand-text-light text-[14px] leading-relaxed">{s.desc}</p>
               </div>
             </ScrollReveal>
           ))}

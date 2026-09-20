@@ -3,9 +3,11 @@
 @theme inline {
   --color-brand-blue: #1a2580;
   --color-brand-blue-dark: #111a60;
+  --color-brand-ink: #0a0d24;
   --color-brand-orange: #c47b22;
   --color-brand-orange-light: #d68e3a;
   --color-brand-gray: #f7f6f4;
+  --color-brand-paper: #faf9f7;
   --color-brand-text: #0d0e1f;
   --color-brand-text-light: #5c5f6e;
 
@@ -14,8 +16,24 @@
   --font-display: var(--font-dm-serif);
 }
 
+:root {
+  /* Righe sottili: la struttura si legge senza riquadri né ombre */
+  --rule: rgba(13, 14, 31, 0.1);
+  --rule-strong: rgba(13, 14, 31, 0.16);
+  --rule-invert: rgba(255, 255, 255, 0.14);
+  --rule-invert-strong: rgba(255, 255, 255, 0.28);
+  /* Movimento lento con partenza decisa e arrivo morbido */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 html {
   scroll-behavior: smooth;
+}
+
+/* Con l'header fisso, un'àncora deve fermarsi sotto la barra */
+:target,
+section[id] {
+  scroll-margin-top: 5.5rem;
 }
 
 body {
@@ -31,11 +49,205 @@ body {
   color: #0d0e1f;
 }
 
+/* Titoli: righe piene, mai una parola orfana all'ultima riga */
+h1, h2, h3 {
+  text-wrap: balance;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-brand-orange);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
 @utility font-display {
   font-family: var(--font-dm-serif), Georgia, serif;
 }
 
+/* ─── Tipografia editoriale ──────────────────────────────────────── */
+
+/* Titolo principale: scala con la finestra, senza salti fra i breakpoint */
+@utility display-1 {
+  font-size: clamp(2.6rem, 5.6vw, 5.25rem);
+  line-height: 1;
+  letter-spacing: -0.04em;
+  font-weight: 700;
+}
+
+@utility display-2 {
+  font-size: clamp(2.25rem, 5vw, 4.25rem);
+  line-height: 1.04;
+  letter-spacing: -0.03em;
+  font-weight: 600;
+}
+
+@utility display-3 {
+  font-size: clamp(1.55rem, 2.6vw, 2.25rem);
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+  font-weight: 600;
+}
+
+/* Occhiello di sezione: maiuscoletto spaziato, sempre con un filetto accanto */
+@utility eyebrow {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+@utility lead {
+  font-size: clamp(1rem, 1.25vw, 1.1875rem);
+  line-height: 1.65;
+}
+
+/* Numerazione: cifre monospazio, tutte della stessa larghezza */
+@utility index-num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+/* ─── Dettagli di superficie ─────────────────────────────────────── */
+
+/* Grana finissima sui fondi scuri: toglie il "piatto" senza farsi notare */
+@utility grain {
+  position: relative;
+  isolation: isolate;
+
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0.32;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+  }
+}
+
+/* Come grain, ma dosata per i fondi chiari */
+@utility paper-grain {
+  position: relative;
+  isolation: isolate;
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    opacity: 0.5;
+    mix-blend-mode: multiply;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='0.16'/%3E%3C/svg%3E");
+  }
+}
+
+/* Link di testo: la sottolineatura entra da sinistra al passaggio del mouse */
+@utility link-sweep {
+  position: relative;
+
+  &::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -3px;
+    height: 1px;
+    background: currentColor;
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.45s var(--ease-out-expo);
+  }
+
+  &:hover::after,
+  &:focus-visible::after {
+    transform: scaleX(1);
+  }
+}
+
+/* Pulsante principale: al passaggio del mouse una superficie sale dal basso */
+@utility btn-sweep {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+
+  & > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background: currentColor;
+    opacity: 0.12;
+    transform: translateY(101%);
+    transition: transform 0.5s var(--ease-out-expo);
+  }
+
+  &:hover::before,
+  &:focus-visible::before {
+    transform: translateY(0);
+  }
+}
+
+/* Freccia che scorre in avanti insieme al pulsante */
+@utility arrow-slide {
+  & .arrow {
+    transition: transform 0.45s var(--ease-out-expo);
+  }
+
+  &:hover .arrow,
+  &:focus-visible .arrow {
+    transform: translateX(4px);
+  }
+}
+
+/* Logo o foto in grigio che riprende colore al passaggio del mouse */
+@utility desaturate-hover {
+  filter: grayscale(1);
+  opacity: 0.55;
+  transition: filter 0.6s var(--ease-out-expo), opacity 0.6s var(--ease-out-expo);
+
+  &:hover,
+  &:focus-visible {
+    filter: grayscale(0);
+    opacity: 1;
+  }
+}
+
+/* ─── Movimento ──────────────────────────────────────────────────── */
+
 @keyframes shimmer {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
+}
+
+@keyframes scroll-cue {
+  0% { transform: translateY(-100%); opacity: 0; }
+  35% { opacity: 1; }
+  100% { transform: translateY(100%); opacity: 0; }
+}
+
+@keyframes marquee-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
 }

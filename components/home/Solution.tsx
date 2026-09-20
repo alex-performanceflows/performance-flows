@@ -1,6 +1,7 @@
 "use client";
 
-import ScrollReveal from "@/components/ui/ScrollReveal";
+import ScrollReveal, { RevealLine } from "@/components/ui/ScrollReveal";
+import SectionHeading from "@/components/ui/SectionHeading";
 
 const steps = [
   {
@@ -62,84 +63,66 @@ const notForWho = [
 
 export default function Solution() {
   return (
-    <section id="metodo" className="bg-white py-16 md:py-24">
-      <div className="max-w-6xl mx-auto px-4">
-        <ScrollReveal>
-          <div className="text-center mb-10 md:mb-14">
-            <p className="text-brand-orange font-semibold text-sm uppercase tracking-[0.18em] mb-3">Come funziona</p>
-            <h2 className="text-3xl md:text-4xl font-bold text-brand-blue mb-4">
-              Il Metodo ProfitFlow™
-            </h2>
-            <p className="text-brand-text-light text-lg max-w-xl mx-auto">
-              ProfitFlow™ è il motore completo per la crescita profittevole del tuo store: Google Ads come motore principale, poi feed, CRO, SEO e automazioni come moltiplicatori. Un percorso chiaro, senza sorprese.
-            </p>
-          </div>
-        </ScrollReveal>
+    <section id="metodo" className="paper-grain bg-white py-24 md:py-36">
+      <div className="max-w-[88rem] mx-auto px-6 md:px-10">
+        <SectionHeading
+          eyebrow="Come funziona"
+          title={<>Il Metodo ProfitFlow&trade;</>}
+          lead="ProfitFlow™ è il motore completo per la crescita profittevole del tuo store: Google Ads come motore principale, poi feed, CRO, SEO e automazioni come moltiplicatori. Un percorso chiaro, senza sorprese."
+          align="center"
+          className="mb-16 md:mb-24"
+        />
 
-        {/* Steps */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+        {/* Passi: colonne separate da filetti, senza riquadri */}
+        <RevealLine />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
           {steps.map((step, i) => (
-            <ScrollReveal key={step.num} delay={i * 0.12}>
-              <div className="relative group h-full">
-                {/* Connector line */}
-                {i < steps.length - 1 && (
-                  <div className="hidden lg:block absolute top-10 left-full w-full h-px bg-gradient-to-r from-brand-orange/40 to-transparent z-10 -translate-x-6" />
-                )}
-                <div className="bg-white rounded-2xl p-6 h-full border border-black/[0.06] group-hover:border-brand-orange/30 group-hover:shadow-md transition-all duration-300">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 rounded-xl bg-brand-blue text-white flex items-center justify-center group-hover:bg-brand-orange transition-colors duration-300">
-                      {step.icon}
-                    </div>
-                    <span className="text-3xl font-black text-gray-200 group-hover:text-brand-orange/30 transition-colors leading-none">
-                      {step.num}
-                    </span>
-                  </div>
-                  <h3 className="text-base font-bold text-brand-text mb-2">{step.title}</h3>
-                  <p className="text-brand-text-light text-sm leading-relaxed">{step.desc}</p>
+            <ScrollReveal key={step.num} delay={i * 0.09}>
+              <div className="group h-full px-0 md:px-8 lg:px-10 first:lg:pl-0 last:lg:pr-0 py-9 md:py-11 border-b md:border-b-0 border-[color:var(--rule)] md:border-l first:md:border-l-0 lg:[&:nth-child(3)]:border-l">
+                <div className="flex items-center gap-4 mb-7">
+                  <span className="index-num text-xs text-brand-text-light/50 group-hover:text-brand-orange transition-colors duration-500">
+                    {step.num}
+                  </span>
+                  <span className="h-px flex-1 bg-[color:var(--rule)] group-hover:bg-brand-orange/40 transition-colors duration-500" aria-hidden="true" />
+                  <span className="text-brand-ink/70 group-hover:text-brand-orange transition-colors duration-500">
+                    {step.icon}
+                  </span>
                 </div>
+                <h3 className="text-[17px] font-semibold text-brand-ink mb-3 leading-snug tracking-[-0.01em]">{step.title}</h3>
+                <p className="text-brand-text-light text-[14px] leading-relaxed">{step.desc}</p>
               </div>
             </ScrollReveal>
           ))}
         </div>
 
-        {/* For who / not for who */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Per chi è / per chi non lo è */}
+        <div className="mt-20 md:mt-28 grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-12">
           <ScrollReveal>
-            <div className="bg-green-50 rounded-2xl p-7 border border-green-100 h-full">
-              <div className="flex items-center gap-2 mb-5">
-                <span className="w-7 h-7 bg-green-500 rounded-full flex items-center justify-center">
-                  <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                </span>
-                <h3 className="text-lg font-bold text-green-800">Per chi è</h3>
-              </div>
-              <ul className="space-y-3">
+            <div className="border-t border-brand-ink/25 pt-7">
+              <h3 className="eyebrow text-brand-ink mb-7">Per chi è</h3>
+              <ul>
                 {forWho.map((item) => (
-                  <li key={item} className="flex items-start gap-3 text-sm">
-                    <span className="text-green-500 mt-0.5 flex-shrink-0">✓</span>
-                    <span className="text-green-900">{item}</span>
+                  <li key={item} className="flex items-start gap-4 py-3.5 border-b border-[color:var(--rule)] text-[15px] text-brand-ink/85 leading-relaxed">
+                    <svg className="w-4 h-4 mt-1 flex-shrink-0 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span>{item}</span>
                   </li>
                 ))}
               </ul>
             </div>
           </ScrollReveal>
 
-          <ScrollReveal delay={0.12}>
-            <div className="bg-red-50 rounded-2xl p-7 border border-red-100 h-full">
-              <div className="flex items-center gap-2 mb-5">
-                <span className="w-7 h-7 bg-red-500 rounded-full flex items-center justify-center">
-                  <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                  </svg>
-                </span>
-                <h3 className="text-lg font-bold text-red-800">Per chi non lo è</h3>
-              </div>
-              <ul className="space-y-3">
+          <ScrollReveal delay={0.1}>
+            <div className="border-t border-[color:var(--rule-strong)] pt-7">
+              <h3 className="eyebrow text-brand-text-light mb-7">Per chi non lo è</h3>
+              <ul>
                 {notForWho.map((item) => (
-                  <li key={item} className="flex items-start gap-3 text-sm">
-                    <span className="text-red-400 mt-0.5 flex-shrink-0">✗</span>
-                    <span className="text-red-900">{item}</span>
+                  <li key={item} className="flex items-start gap-4 py-3.5 border-b border-[color:var(--rule)] text-[15px] text-brand-text-light leading-relaxed">
+                    <svg className="w-4 h-4 mt-1 flex-shrink-0 text-brand-text-light/50" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M6 6l12 12M18 6L6 18" />
+                    </svg>
+                    <span>{item}</span>
                   </li>
                 ))}
               </ul>

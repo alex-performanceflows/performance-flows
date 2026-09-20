@@ -1,7 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import ScrollReveal from "@/components/ui/ScrollReveal";
+import SectionHeading from "@/components/ui/SectionHeading";
+import { ArrowLink } from "@/components/ui/Cta";
 
 const faqs = [
   {
@@ -54,30 +57,40 @@ function AccordionItem({
   index: number;
 }) {
   return (
-    <div className={`rounded-2xl overflow-hidden border transition-all duration-300 ${isOpen ? "border-brand-orange/20 shadow-md" : "border-black/[0.06] shadow-sm"}`}>
+    <div className="border-b border-[color:var(--rule)]">
       <button
         onClick={toggle}
-        className="w-full flex items-center justify-between px-6 py-5 text-left bg-white hover:bg-brand-gray/40 transition-colors"
+        aria-expanded={isOpen}
+        className="group w-full flex items-start gap-6 md:gap-10 py-6 md:py-7 text-left"
       >
-        <div className="flex items-center gap-4">
-          <span className="flex-shrink-0 text-xs font-bold text-brand-orange/60 font-mono">
-            {String(index + 1).padStart(2, "0")}
-          </span>
-          <span className="font-semibold text-brand-text text-sm md:text-base">{faq.q}</span>
-        </div>
-        <span className={`flex-shrink-0 ml-4 w-7 h-7 rounded-full border flex items-center justify-center transition-all duration-300 ${isOpen ? "bg-brand-orange border-brand-orange text-white rotate-180" : "border-gray-200 text-gray-400"}`}>
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
-          </svg>
+        <span className="index-num text-xs text-brand-text-light/50 group-hover:text-brand-orange transition-colors duration-500 pt-1.5">
+          {String(index + 1).padStart(2, "0")}
+        </span>
+        <span className={`flex-1 text-[17px] md:text-xl font-semibold tracking-[-0.015em] leading-snug transition-colors duration-300 ${isOpen ? "text-brand-orange" : "text-brand-ink group-hover:text-brand-ink/70"}`}>
+          {faq.q}
+        </span>
+        {/* Più che diventa meno: la barra verticale ruota e sparisce */}
+        <span className="relative flex-shrink-0 w-4 h-4 mt-1.5" aria-hidden="true">
+          <span className={`absolute left-0 top-1/2 h-px w-4 -translate-y-1/2 transition-colors duration-300 ${isOpen ? "bg-brand-orange" : "bg-brand-ink"}`} />
+          <span className={`absolute left-1/2 top-0 w-px h-4 -translate-x-1/2 origin-center transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${isOpen ? "scale-y-0 bg-brand-orange" : "scale-y-100 bg-brand-ink"}`} />
         </span>
       </button>
-      {isOpen && (
-        <div className="px-6 pb-6 bg-white">
-          <div className="pl-8 border-l-2 border-brand-orange/20">
-            <p className="text-brand-text-light text-sm leading-relaxed">{faq.a}</p>
-          </div>
-        </div>
-      )}
+
+      <AnimatePresence initial={false}>
+        {isOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            className="overflow-hidden"
+          >
+            <p className="pb-7 md:pb-8 pl-[3.25rem] md:pl-[4.5rem] pr-8 text-brand-text-light text-[15px] leading-relaxed max-w-3xl">
+              {faq.a}
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -86,20 +99,17 @@ export default function FAQ() {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
 
   return (
-    <section id="faq" className="bg-brand-gray py-16 md:py-24">
-      <div className="max-w-3xl mx-auto px-4">
-        <ScrollReveal>
-          <div className="text-center mb-10 md:mb-12">
-            <p className="text-brand-orange font-semibold text-sm uppercase tracking-[0.18em] mb-3">Hai domande?</p>
-            <h2 className="text-3xl md:text-4xl font-bold text-brand-blue">
-              Domande Frequenti
-            </h2>
-          </div>
-        </ScrollReveal>
+    <section id="faq" className="paper-grain bg-brand-paper py-24 md:py-36">
+      <div className="max-w-5xl mx-auto px-6 md:px-10">
+        <SectionHeading
+          eyebrow="Hai domande?"
+          title="Domande Frequenti"
+          className="mb-14 md:mb-20"
+        />
 
-        <div className="space-y-3">
+        <div className="border-t border-[color:var(--rule)]">
           {faqs.map((faq, i) => (
-            <ScrollReveal key={i} delay={i * 0.05}>
+            <ScrollReveal key={i} delay={Math.min(i, 4) * 0.04}>
               <AccordionItem
                 faq={faq}
                 isOpen={openIndex === i}
@@ -110,18 +120,10 @@ export default function FAQ() {
           ))}
         </div>
 
-        <ScrollReveal delay={0.3}>
-          <div className="mt-10 text-center">
-            <p className="text-brand-text-light text-sm mb-4">Non hai trovato risposta alla tua domanda?</p>
-            <a
-              href="#contatto"
-              className="inline-flex items-center gap-2 text-brand-blue font-semibold text-sm hover:text-brand-orange transition"
-            >
-              Scrivici direttamente
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-              </svg>
-            </a>
+        <ScrollReveal delay={0.2}>
+          <div className="mt-12 flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-8">
+            <p className="text-brand-text-light text-sm">Non hai trovato risposta alla tua domanda?</p>
+            <ArrowLink href="#contatto" className="text-brand-ink">Scrivici direttamente</ArrowLink>
           </div>
         </ScrollReveal>
       </div>

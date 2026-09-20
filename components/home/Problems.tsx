@@ -1,6 +1,7 @@
 "use client";
 
 import ScrollReveal from "@/components/ui/ScrollReveal";
+import SectionHeading from "@/components/ui/SectionHeading";
 
 const problems = [
   {
@@ -27,34 +28,32 @@ const problems = [
 
 export default function Problems() {
   return (
-    <section id="problemi" className="bg-white py-16 md:py-24">
-      <div className="max-w-6xl mx-auto px-6">
-        <ScrollReveal>
-          <div className="mb-10 md:mb-14">
-            <p className="text-brand-orange font-medium text-xs uppercase tracking-[0.18em] mb-4">Perché stai leggendo questa pagina</p>
-            <h2 className="text-4xl md:text-5xl text-brand-blue leading-tight">
-              I problemi
-            </h2>
-          </div>
-        </ScrollReveal>
+    <section id="problemi" className="paper-grain bg-white py-24 md:py-36">
+      <div className="max-w-[88rem] mx-auto px-6 md:px-10">
+        <SectionHeading
+          eyebrow="Perché stai leggendo questa pagina"
+          title="I problemi"
+          className="mb-14 md:mb-20 max-w-3xl"
+        />
 
-        <div className="space-y-0 border-t border-black/[0.06]">
+        <div className="border-t border-[color:var(--rule)]">
           {problems.map((p, i) => (
-            <ScrollReveal key={p.title} delay={i * 0.07}>
-              <div className="group grid grid-cols-[3rem_1fr] md:grid-cols-[5rem_1fr_2fr] gap-6 md:gap-12 py-8 md:py-10 border-b border-black/[0.06] hover:bg-brand-gray/50 transition-colors duration-200 px-2 rounded-sm -mx-2">
-                <span className="text-2xl md:text-3xl text-brand-orange/30 group-hover:text-brand-orange/60 transition-colors leading-none pt-1">
+            <ScrollReveal key={p.title} delay={i * 0.06}>
+              <div className="group relative grid grid-cols-[2.5rem_1fr] md:grid-cols-[5rem_minmax(0,0.9fr)_minmax(0,1.1fr)] gap-x-6 gap-y-3 md:gap-x-14 py-8 md:py-11 border-b border-[color:var(--rule)] transition-colors duration-500">
+                {/* Filetto che si estende sotto la riga al passaggio del mouse */}
+                <span
+                  aria-hidden="true"
+                  className="absolute left-0 bottom-[-1px] h-px w-full bg-brand-orange origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]"
+                />
+                <span className="index-num text-xs md:text-sm text-brand-text-light/50 group-hover:text-brand-orange transition-colors duration-500 pt-1.5">
                   {String(i + 1).padStart(2, "0")}
                 </span>
-                <div className="md:col-span-1">
-                  <h3 className="text-base md:text-lg font-semibold text-brand-text leading-snug">
-                    {p.title}
-                  </h3>
-                </div>
-                <div className="col-start-2 md:col-start-auto">
-                  <p className="text-brand-text-light text-sm leading-relaxed">
-                    {p.desc}
-                  </p>
-                </div>
+                <h3 className="display-3 text-brand-ink transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] md:group-hover:translate-x-1.5">
+                  {p.title}
+                </h3>
+                <p className="col-start-2 md:col-start-auto text-brand-text-light text-[15px] leading-relaxed max-w-xl">
+                  {p.desc}
+                </p>
               </div>
             </ScrollReveal>
           ))}

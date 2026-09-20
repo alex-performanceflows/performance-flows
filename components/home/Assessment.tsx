@@ -95,7 +95,7 @@ const outputs = [
 
 export default function Assessment() {
   return (
-    <section className="bg-brand-gray py-16 md:py-24" id="come-funziona">
+    <section className="paper-grain bg-brand-paper py-24 md:py-36" id="come-funziona">
       <div className="max-w-5xl mx-auto px-4 space-y-14 md:space-y-20">
 
         {/* Header + domande */}
@@ -105,7 +105,7 @@ export default function Assessment() {
               <p className="text-brand-orange font-semibold text-sm uppercase tracking-[0.18em] mb-4">
                 Analizziamo insieme il tuo progetto
               </p>
-              <h2 className="text-3xl md:text-4xl font-bold text-brand-blue leading-tight">
+              <h2 className="display-2 text-brand-ink">
                 Troviamo insieme la risposta <br className="hidden md:block" />a queste domande
               </h2>
             </div>
@@ -114,7 +114,7 @@ export default function Assessment() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {questions.map((q, i) => (
               <ScrollReveal key={i} delay={i * 0.08}>
-                <div className="flex items-start gap-4 bg-white border border-black/[0.06] rounded-2xl p-6 shadow-sm hover:border-brand-blue/20 hover:shadow-md transition-all h-full">
+                <div className="flex items-start gap-4 bg-white border border-[color:var(--rule)] rounded-xl p-7 transition-colors duration-500 hover:border-brand-orange/40 h-full">
                   <span className="flex-shrink-0 w-11 h-11 rounded-xl bg-brand-blue/5 border border-brand-blue/10 text-brand-blue flex items-center justify-center">
                     {q.icon}
                   </span>
@@ -130,7 +130,7 @@ export default function Assessment() {
         {/* Come funziona */}
         <div>
           <ScrollReveal>
-            <h2 className="text-3xl md:text-4xl font-bold text-brand-blue text-center mb-8 md:mb-10">
+            <h2 className="display-2 text-brand-ink text-center mb-12 md:mb-16">
               Ok, come funziona?
             </h2>
           </ScrollReveal>
@@ -142,7 +142,7 @@ export default function Assessment() {
             {steps.map((step, i) => (
               <ScrollReveal key={i} delay={i * 0.1}>
                 <div className="flex flex-col items-center text-center">
-                  <div className="relative z-10 w-16 h-16 rounded-full bg-brand-blue text-white font-black text-xl flex items-center justify-center mb-5 shadow-lg shadow-brand-blue/20">
+                  <div className="relative z-10 w-14 h-14 rounded-full bg-brand-ink text-white index-num text-base flex items-center justify-center mb-6">
                     {step.n}
                   </div>
                   <p className="font-bold text-brand-blue text-lg mb-1">{step.title}</p>
@@ -155,8 +155,8 @@ export default function Assessment() {
 
         {/* Cosa ottieni */}
         <ScrollReveal>
-          <div className="bg-white border border-black/[0.06] rounded-2xl p-8 md:p-10 shadow-sm">
-            <h3 className="text-2xl font-bold text-brand-blue mb-6 text-center">
+          <div className="bg-white border border-[color:var(--rule)] rounded-xl p-9 md:p-12">
+            <h3 className="display-3 text-brand-ink mb-8 text-center">
               Cosa ottieni dalla call
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -177,7 +177,7 @@ export default function Assessment() {
         {/* Per chi è adatto */}
         <div>
           <ScrollReveal>
-            <h2 className="text-3xl md:text-4xl font-bold text-brand-blue text-center mb-4">
+            <h2 className="display-2 text-brand-ink text-center mb-5">
               Per chi è adatta questa call?
             </h2>
             <p className="text-brand-text-light text-center max-w-xl mx-auto mb-10 text-sm leading-relaxed">
@@ -188,7 +188,7 @@ export default function Assessment() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* SÌ */}
             <ScrollReveal delay={0.05}>
-              <div className="bg-white border-2 border-green-400/30 rounded-2xl p-7 shadow-sm h-full">
+              <div className="bg-white border border-emerald-600/25 rounded-xl p-8 h-full">
                 <p className="font-bold text-brand-blue text-base mb-5 text-center">
                   Prenota la call se:
                 </p>
@@ -209,7 +209,7 @@ export default function Assessment() {
 
             {/* NO */}
             <ScrollReveal delay={0.1}>
-              <div className="bg-white border-2 border-gray-200 rounded-2xl p-7 shadow-sm h-full">
+              <div className="bg-white border border-[color:var(--rule-strong)] rounded-xl p-8 h-full">
                 <p className="font-bold text-gray-400 text-base mb-5 text-center">
                   NON prenotare se:
                 </p>
@@ -232,7 +232,7 @@ export default function Assessment() {
 
         {/* CTA box */}
         <ScrollReveal>
-          <div className="bg-[#0d1040] rounded-2xl p-8 md:p-10 text-center relative overflow-hidden">
+          <div className="grain bg-[#0b1152] rounded-xl p-10 md:p-14 text-center relative overflow-hidden">
             <div className="absolute inset-0 opacity-5" style={{ backgroundImage: "radial-gradient(circle, #ffffff 1px, transparent 1px)", backgroundSize: "28px 28px" }} />
             <div className="relative">
               <p className="text-white text-lg md:text-xl font-medium leading-relaxed max-w-2xl mx-auto mb-8">
@@ -243,7 +243,7 @@ export default function Assessment() {
               </p>
               <a
                 href="#contatto"
-                className="inline-flex items-center gap-2 bg-brand-orange text-white font-bold text-base px-8 py-4 rounded-xl hover:bg-brand-orange-light transition shadow-lg shadow-brand-orange/30 hover:shadow-brand-orange/50 hover:-translate-y-0.5 transform"
+                className="btn-sweep arrow-slide inline-flex items-center gap-3 bg-brand-orange text-white font-semibold text-[15px] px-8 py-4 rounded-full transition-colors"
               >
                 Raccontaci del tuo progetto
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

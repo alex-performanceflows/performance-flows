@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import ScrollReveal from "@/components/ui/ScrollReveal";
+import SectionHeading from "@/components/ui/SectionHeading";
 import CertCarousel from "@/components/home/CertCarousel";
 
 const team = [
@@ -16,59 +17,71 @@ const team = [
 
 export default function Team() {
   return (
-    <section id="team" className="bg-brand-blue text-white py-16 md:py-24">
-      <div className="max-w-6xl mx-auto px-4">
-        <ScrollReveal>
-          <div className="text-center mb-10">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">Il Team</h2>
-            <p className="text-blue-200 text-lg max-w-2xl mx-auto">
+    <section id="team" className="grain relative bg-[#0b1152] text-white py-24 md:py-36">
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background:
+            "radial-gradient(90% 70% at 10% 0%, rgba(26,37,128,0.75) 0%, transparent 60%), linear-gradient(180deg, #0a0f42 0%, #0b1152 100%)",
+        }}
+      />
+
+      <div className="relative z-10 max-w-[88rem] mx-auto px-6 md:px-10">
+        <SectionHeading
+          eyebrow="Chi siamo"
+          title="Il Team"
+          tone="dark"
+          align="center"
+          lead={
+            <>
               In Performance Flows prendiamo la performance{" "}
-              <strong className="text-white">sul serio</strong>, con costante
+              <strong className="text-white font-medium">sul serio</strong>, con costante
               aggiornamento sulle tecnologie e implementazioni più moderne e
               conseguimento di tutte le certificazioni ufficiali.
-            </p>
-          </div>
-        </ScrollReveal>
+            </>
+          }
+          className="mb-16 md:mb-20 max-w-3xl mx-auto"
+        />
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 sm:gap-6 mb-12 max-w-4xl mx-auto">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-x-5 gap-y-10 md:gap-x-6">
           {team.map((member, i) => (
-            <ScrollReveal key={member.name} delay={i * 0.1}>
-              <div className="bg-white/[0.06] backdrop-blur-sm rounded-2xl p-6 border border-white/10 text-center h-full flex flex-col items-center">
-                <div className="w-28 h-28 md:w-36 md:h-36 rounded-full mb-4 overflow-hidden ring-4 ring-brand-orange/30">
+            <ScrollReveal key={member.name} delay={(i % 6) * 0.07}>
+              <figure className="group">
+                <div className="relative overflow-hidden rounded-sm aspect-[4/5] bg-white/5">
                   <Image
                     src={member.photo}
                     alt={`Foto ${member.name}`}
-                    width={144}
-                    height={144}
-                    className="w-full h-full object-cover"
+                    width={400}
+                    height={500}
+                    className="w-full h-full object-cover transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.03]"
                   />
                 </div>
-                <h3 className="text-lg md:text-xl font-bold leading-tight">{member.name}</h3>
-                <p className="text-xs md:text-sm text-blue-200/70 mt-1.5 leading-snug">{member.role}</p>
-              </div>
+                <figcaption className="mt-4 border-t border-[color:var(--rule-invert)] pt-3 transition-colors duration-500 group-hover:border-brand-orange/60">
+                  <p className="text-[15px] font-semibold leading-tight">{member.name}</p>
+                  <p className="text-[11px] text-white/45 mt-1.5 leading-snug tracking-[0.02em]">{member.role}</p>
+                </figcaption>
+              </figure>
             </ScrollReveal>
           ))}
         </div>
 
-        <ScrollReveal delay={0.25}>
-          <p className="text-center text-sm text-blue-300 max-w-2xl mx-auto mb-12 leading-relaxed">
+        <ScrollReveal delay={0.2}>
+          <p className="mt-16 text-center text-[15px] text-white/55 max-w-3xl mx-auto leading-relaxed">
             Oltre a Google Ads e feed, lavoriamo su migrazione Shopify, Klaviyo, CRO e profit tracking, sempre integrati nel metodo ProfitFlow™ e mai come servizi separati.
           </p>
         </ScrollReveal>
 
-        <ScrollReveal delay={0.3}>
-          <div className="text-center mb-8">
-            <p className="text-sm text-blue-300 mb-6 font-semibold uppercase tracking-wide">
-              Le nostre certificazioni
-            </p>
+        <ScrollReveal delay={0.25}>
+          <div className="mt-16 md:mt-20 flex items-center gap-5">
+            <p className="eyebrow text-white/40 whitespace-nowrap">Le nostre certificazioni</p>
+            <span className="h-px flex-1 bg-[color:var(--rule-invert)]" aria-hidden="true" />
           </div>
         </ScrollReveal>
+      </div>
 
-        {/* Carousel: full bleed, fuori dal max-w */}
-        <div className="mb-10 -mx-4">
-          <CertCarousel />
-        </div>
-
+      {/* Carousel: full bleed, fuori dal max-w */}
+      <div className="relative z-10 mt-10">
+        <CertCarousel />
       </div>
     </section>
   );

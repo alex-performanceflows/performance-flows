@@ -1,6 +1,7 @@
 "use client";
 
 import ScrollReveal from "@/components/ui/ScrollReveal";
+import SectionHeading from "@/components/ui/SectionHeading";
 
 type Brand = {
   name: string;
@@ -29,39 +30,43 @@ const brands: Brand[] = [
 
 export default function Brands() {
   return (
-    <section id="brand" className="bg-brand-gray py-16 md:py-24">
-      <div className="max-w-6xl mx-auto px-4">
-        <ScrollReveal>
-          <div className="text-center mb-10 md:mb-12">
-            <p className="text-brand-orange font-semibold text-sm uppercase tracking-[0.18em] mb-3">
-              Clienti
-            </p>
-            <h2 className="text-3xl md:text-4xl font-bold text-brand-blue">
-              Alcuni tra i brand con cui abbiamo collaborato
-            </h2>
-          </div>
-        </ScrollReveal>
+    <section id="brand" className="paper-grain bg-white py-24 md:py-36">
+      <div className="max-w-[88rem] mx-auto px-6 md:px-10">
+        <SectionHeading
+          eyebrow="Clienti"
+          title="Alcuni tra i brand con cui abbiamo collaborato"
+          align="center"
+          className="mb-16 md:mb-20 max-w-3xl mx-auto"
+        />
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
+        {/* Muro di loghi su griglia di filetti: nessun riquadro, solo allineamento */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 border-t border-l border-[color:var(--rule)]">
           {brands.map((brand, i) => (
-            <ScrollReveal key={brand.name} delay={(i % 5) * 0.06}>
+            <ScrollReveal key={brand.name} delay={(i % 5) * 0.05}>
               <a
                 href={brand.url}
                 target="_blank"
                 rel="noopener noreferrer"
                 title={brand.name}
-                className="group bg-white rounded-xl border border-black/[0.06] aspect-[3/2] flex flex-col items-center justify-center gap-2 p-6 hover:border-brand-orange/30 hover:shadow-md transition-all duration-300"
+                className="group relative h-full border-r border-b border-[color:var(--rule)] aspect-[3/2] flex flex-col items-center justify-center gap-2.5 p-7 transition-colors duration-500 hover:bg-brand-paper"
               >
+                <svg
+                  aria-hidden="true"
+                  className="absolute top-4 right-4 w-3.5 h-3.5 text-brand-text-light opacity-0 -translate-x-1 translate-y-1 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:opacity-100 group-hover:translate-x-0 group-hover:translate-y-0"
+                  fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M7 17L17 7M9 7h8v8" />
+                </svg>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={brand.logo}
                   alt={brand.name}
                   width={brand.w}
                   height={brand.h}
-                  className={`${brand.showName ? "max-h-9 md:max-h-10" : "max-h-12 md:max-h-14"} w-auto max-w-full object-contain`}
+                  className={`desaturate-hover ${brand.showName ? "max-h-9 md:max-h-10" : "max-h-11 md:max-h-14"} w-auto max-w-full object-contain`}
                 />
                 {brand.showName && (
-                  <span className="text-[11px] md:text-xs font-semibold tracking-wide text-brand-text text-center leading-none">
+                  <span className="text-[11px] md:text-xs font-semibold tracking-[0.04em] text-brand-text-light text-center leading-none">
                     {brand.name}
                   </span>
                 )}
