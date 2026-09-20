@@ -90,8 +90,7 @@ export default function Hero() {
         className="relative z-10 w-full flex-1 flex flex-col justify-center items-center text-center max-w-[76rem] mx-auto px-6 md:px-10 pt-32 pb-12 md:pt-36 md:pb-14"
       >
         <ScrollReveal>
-          <div className="inline-flex items-center gap-3 border border-white/15 rounded-full px-5 py-2 mb-8 md:mb-12">
-            <span className="w-1.5 h-1.5 flex-shrink-0 rounded-full bg-brand-orange" />
+          <div className="inline-flex items-center border border-white/15 rounded-full px-6 py-2 mb-8 md:mb-12">
             <p className="eyebrow text-white/55">Performance marketing a 360° per store Shopify</p>
           </div>
         </ScrollReveal>
