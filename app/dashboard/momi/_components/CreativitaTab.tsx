@@ -14,6 +14,8 @@ import {
   type CreativeWindow, type SortValue, type Palette,
 } from "./shared";
 import { ACCENT, POSITIVE, NEGATIVE, V_APP, V_FAN, SPESA_SPEGNI_ALERT_PCT, VERDICT_UI, KNOWN_FORMATS, isVideoFormat, type Verdict } from "../config";
+import AiInsights from "@/components/dashboard/insights/AiInsights";
+import { buildCreativeInsights, type InsightCreative } from "@/lib/creative-insights";
 
 type ObjectiveFilter = "app" | "fan";
 type StatoFilter = "active" | "all";
@@ -145,6 +147,49 @@ export function CreativitaTab({ data }: { data: MomiData }) {
     return c;
   }, [filtered, verdictMap]);
 
+  // Finestra più lunga: serve solo a dire se il costo sta salendo o scendendo
+  const longerWin: CreativeWindow | null = win === "w7" ? "w30" : win === "w30" ? "w90" : null;
+  const costoPrecedente = useMemo(() => {
+    const m = new Map<string, number>();
+    if (!longerWin) return m;
+    for (const r of (data.meta?.creatives?.[longerWin]?.rows ?? []).map(toRow)) {
+      const costo = isFan ? r.cpv : r.cpr;
+      if (costo > 0) m.set(keyOf(r.nome), costo);
+    }
+    return m;
+  }, [data.meta?.creatives, longerWin, isFan]);
+
+  const insights = useMemo(() => {
+    const rows: InsightCreative[] = filtered.map((r) => {
+      const video = isVideoFormat(r.formato);
+      const costo = isFan ? r.cpv : r.cpr;
+      return {
+        nome: r.nome,
+        formato: r.formato,
+        soggetto: r.angolo || null,
+        isVideo: video,
+        spesa: r.spesa,
+        impression: r.impr,
+        risultati: isFan ? r.visite : r.reg,
+        costo: costo > 0 ? costo : null,
+        hook: video ? r.hookPct : null,
+        hold: video ? r.holdPct : null,
+        ctr: r.ctr,
+        giorni: r.giorni,
+        costoPrecedente: costoPrecedente.get(keyOf(r.nome)) ?? null,
+      };
+    });
+    return buildCreativeInsights(rows, {
+      risultatoLabel: isFan ? "visite al profilo" : "registrazioni",
+      costoLabel: isFan ? "costo per visita" : "costo per registrazione",
+      minSpesa: isFan ? V_FAN.MIN_SPEND : V_APP.MIN_SPEND,
+      costoBuono: isFan ? V_FAN.CPV_GOOD : V_APP.CPR_GOOD,
+      finestraBreve: longerWin ? `negli ${WINDOW_LABEL[win]}` : undefined,
+      finestraLunga: longerWin ? `agli ${WINDOW_LABEL[longerWin]}` : undefined,
+      eur, pct: (n, digits = 1) => pctStr(n, digits), integer,
+    });
+  }, [filtered, isFan, win, longerWin, costoPrecedente]);
+
   // Vista per formato ricalcolata sulla finestra corrente, così segue il periodo selezionato
   const byFormat = useMemo(() => {
     const m = new Map<string, { n: number; spesa: number; install: number; reg: number }>();
@@ -216,6 +261,8 @@ export function CreativitaTab({ data }: { data: MomiData }) {
             active={verdictFilter === v} onClick={() => setVerdictFilter(verdictFilter === v ? null : v)} />
         ))}
       </div>
+
+      <AiInsights insights={insights} accent={ACCENT} periodo={WINDOW_LABEL[win]} />
 
       <CreativeTable
         rows={defaultOrder} isFan={isFan} verdictMap={verdictMap} data={data} win={win}

@@ -11,9 +11,11 @@ import {
 } from "./shared";
 import {
   CreativeWindowDetail, AvgTd, WINDOW_LABEL,
-  creativeKey, statoLabel, useCreativeWindows,
+  creativeKey, isVideoFormat, statoLabel, useCreativeWindows,
   type CreativeMetricsRaw, type CreativeWindows,
 } from "./creatives";
+import AiInsights from "@/components/dashboard/insights/AiInsights";
+import { buildCreativeInsights, type InsightCreative } from "@/lib/creative-insights";
 
 type FamilyKey = "video" | "carosello" | "statico";
 
@@ -70,6 +72,46 @@ export function PerformanceCreativesTab({ data }: { data: GondolinaData }) {
   const currentRows = byFamily[family];
   const currentMeta = FAMILY_META[family];
 
+  // Letture automatiche su tutte le creatività della finestra, non solo la
+  // famiglia aperta: nel weekly interessa il quadro del periodo
+  const longerWin: CreativeWindow | null = win === "w7" ? "w30" : win === "w30" ? "w90" : null;
+  const insights = useMemo(() => {
+    const creatives = [...windows[win].values()].filter((c) => includePaused || c.stato === "ACTIVE");
+    // Finché Meta non attribuisce acquisti, il risultato leggibile è il carrello
+    const acquisti = creatives.reduce((s, c) => s + c.acquisti, 0);
+    const usaAcquisti = acquisti > 0;
+    const costoDi = (c: CreativeMetricsRaw) => {
+      if (usaAcquisti) return c.acquisti > 0 ? c.spesa / c.acquisti : null;
+      return c.atc > 0 ? c.spesa / c.atc : null;
+    };
+    const rows: InsightCreative[] = creatives.map((c) => {
+      const video = isVideoFormat(c.formato);
+      const prima = longerWin ? windows[longerWin].get(creativeKey(c.nome, c.formato)) : undefined;
+      return {
+        nome: c.nome,
+        formato: c.formato,
+        soggetto: c.soggetto || null,
+        isVideo: video,
+        spesa: c.spesa,
+        impression: c.impression,
+        risultati: usaAcquisti ? c.acquisti : c.atc,
+        costo: costoDi(c),
+        hook: video ? c.hookRate : null,
+        hold: video ? c.holdRate : null,
+        ctr: c.ctrLink,
+        costoPrecedente: prima ? costoDi(prima) : null,
+      };
+    });
+    return buildCreativeInsights(rows, {
+      risultatoLabel: usaAcquisti ? "acquisti" : "aggiunte al carrello",
+      costoLabel: usaAcquisti ? "costo per acquisto" : "costo per carrello",
+      minSpesa: AD_CFG.MIN_SPEND,
+      finestraBreve: longerWin ? `negli ${WINDOW_LABEL[win]}` : undefined,
+      finestraLunga: longerWin ? `agli ${WINDOW_LABEL[longerWin]}` : undefined,
+      eur, pct: (n, digits = 1) => pctStr(n, digits), integer,
+    });
+  }, [windows, win, longerWin, includePaused]);
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       <div>
@@ -85,6 +127,8 @@ export function PerformanceCreativesTab({ data }: { data: GondolinaData }) {
         <input type="checkbox" checked={includePaused} onChange={(e) => setIncludePaused(e.target.checked)} style={{ accentColor: ACCENT }} />
         <span style={{ color: palette.textMuted }}>Includi in pausa</span>
       </label>
+
+      <AiInsights insights={insights} accent={ACCENT} periodo={WINDOW_LABEL[win]} />
 
       {/* Card famiglia */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
