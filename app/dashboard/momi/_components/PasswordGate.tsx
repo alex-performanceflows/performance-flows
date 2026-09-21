@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ACCENT, BRAND_NAVY, CREAM } from "../config";
 
-const CORRECT_PASSWORD = "momi";
+const CORRECT_PASSWORD = "momi2026";
 
 export function PasswordGate({ onAuthorized }: { onAuthorized: () => void }) {
   const [password, setPassword] = useState("");
