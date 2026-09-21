@@ -1,3 +1,3 @@
 import { roadmapItemRoute } from "@/lib/client-roadmap-api";
 
-export const GET = roadmapItemRoute("gondolina");
+export const GET = roadmapItemRoute("momi");

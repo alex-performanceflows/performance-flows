@@ -1,3 +1,3 @@
 import { meetingsListRoute } from "@/lib/client-roadmap-api";
 
-export const GET = meetingsListRoute("gondolina");
+export const GET = meetingsListRoute("momi");

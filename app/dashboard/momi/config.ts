@@ -27,6 +27,7 @@ export const SPESA_SPEGNI_ALERT_PCT = 15;
 // Palette · brand ufficiale MOMI (getmomi.com)
 export const BRAND_NAVY = "#1a203d";       // navy MOMI (dal logo)
 export const ACCENT = "#7d87ff";           // indigo chiaro leggibile su dark
+export const ACCENT_SOFT = "#a3a9ff";      // stesso indigo, un gradino più chiaro
 export const CREAM = "#f3eee8";            // testi in evidenza
 export const CREAM_SOFT = "#e5ddd0";
 export const CHART_PALETTE = [

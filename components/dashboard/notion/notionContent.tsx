@@ -1,8 +1,22 @@
 "use client";
 
-import { Fragment, useCallback, useRef, useState } from "react";
-import { useTheme, Skeleton, ACCENT, GOLD, POSITIVE, type Palette } from "./shared";
+import { Fragment, createContext, useCallback, useContext, useRef, useState } from "react";
+import { useTheme, Skeleton, type Palette } from "@/app/dashboard/vitaedna/_components/shared";
 import type { ContentBlock } from "@/lib/client-roadmap";
+
+const POSITIVE = "#22c55e";
+
+/** Colori e nome del cliente: valgono per tutta la vista Notion di quella dashboard. */
+export type NotionUi = { accent: string; accentSoft: string; clientName: string };
+
+const NotionUiContext = createContext<NotionUi>({
+  accent: "#c47b22",
+  accentSoft: "#d68e3a",
+  clientName: "Il cliente",
+});
+
+export const NotionUiProvider = NotionUiContext.Provider;
+export const useNotionUi = () => useContext(NotionUiContext);
 
 // ─── Formati ──────────────────────────────────────────────────────
 
@@ -149,6 +163,7 @@ export function NotionBlocks({ blocks }: { blocks: ContentBlock[] }) {
 
 function SingleBlock({ block: b }: { block: ContentBlock }) {
   const { palette } = useTheme();
+  const { accent } = useNotionUi();
   switch (b.type) {
     case "heading_1":
     case "heading_2":
@@ -168,7 +183,7 @@ function SingleBlock({ block: b }: { block: ContentBlock }) {
       return (
         <div style={{
           margin: "8px 0", padding: b.type === "callout" ? "8px 12px" : "2px 12px",
-          borderLeft: `3px solid ${b.type === "callout" ? GOLD : palette.cardBorder}`,
+          borderLeft: `3px solid ${b.type === "callout" ? accent : palette.cardBorder}`,
           background: b.type === "callout" ? palette.divider : "transparent", borderRadius: b.type === "callout" ? 6 : 0,
         }}>
           <Spans block={b} />
@@ -240,6 +255,7 @@ function SingleBlock({ block: b }: { block: ContentBlock }) {
 
 function Spans({ block }: { block: ContentBlock }) {
   const { palette } = useTheme();
+  const { accent } = useNotionUi();
   return (
     <>
       {(block.spans ?? []).map((s, i) => {
@@ -248,7 +264,7 @@ function Spans({ block }: { block: ContentBlock }) {
         if (s.bold) node = <strong style={{ color: palette.text }}>{node}</strong>;
         if (s.italic) node = <em>{node}</em>;
         if (s.strike) node = <s>{node}</s>;
-        if (s.href) node = <a href={s.href} target="_blank" rel="noopener noreferrer" style={{ color: ACCENT, textDecoration: "underline" }}>{node}</a>;
+        if (s.href) node = <a href={s.href} target="_blank" rel="noopener noreferrer" style={{ color: accent, textDecoration: "underline" }}>{node}</a>;
         return <Fragment key={i}>{node}</Fragment>;
       })}
     </>

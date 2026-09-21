@@ -12,7 +12,10 @@ import { fetchPageBlocks, hasPageContent, notionGet, type ContentBlock } from "@
 /** Pagine dei clienti nel CRM Notion. */
 export const CRM_CLIENT_IDS = {
   gondolina: "37537be1-b168-80bb-b00a-c74e0fa21380",
+  momi: "33e37be1-b168-8069-8b22-ce4125aaecea",
 } as const;
+
+export type ClientKey = keyof typeof CRM_CLIENT_IDS;
 
 export type RoadmapOwner = "pf" | "cliente" | "joint";
 

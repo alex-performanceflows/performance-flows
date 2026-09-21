@@ -3,16 +3,16 @@
 import { useMemo } from "react";
 import { NotionUiProvider } from "@/components/dashboard/notion/notionContent";
 import MeetingsView from "@/components/dashboard/notion/MeetingsView";
-import { ACCENT, ACCENT_SOFT } from "./shared";
+import { ACCENT, ACCENT_SOFT } from "../config";
 
 export function MeetingsTab() {
   const ui = useMemo(
-    () => ({ accent: ACCENT, accentSoft: ACCENT_SOFT, clientName: "Gondolina" }),
+    () => ({ accent: ACCENT, accentSoft: ACCENT_SOFT, clientName: "MOMI" }),
     [],
   );
   return (
     <NotionUiProvider value={ui}>
-      <MeetingsView endpoint="/api/gondolina/meetings" />
+      <MeetingsView endpoint="/api/momi/meetings" />
     </NotionUiProvider>
   );
 }

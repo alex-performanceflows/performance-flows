@@ -1,3 +1,3 @@
 import { roadmapListRoute } from "@/lib/client-roadmap-api";
 
-export const GET = roadmapListRoute("gondolina");
+export const GET = roadmapListRoute("momi");
