@@ -14,7 +14,7 @@ import { AdvertisingTab } from "./AdvertisingTab";
 import { EcommerceTab } from "./EcommerceTab";
 import { TrafficoTab } from "./TrafficoTab";
 import { SEOTab } from "./SEOTab";
-import { EmailSaluteTab } from "./EmailSaluteTab";
+import { EmailTab } from "./EmailTab";
 import { CreativitaTab } from "./CreativitaTab";
 import { RoadmapTab } from "./RoadmapTab";
 import { MeetingsTab } from "./MeetingsTab";
@@ -26,7 +26,7 @@ const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
   { key: "ecommerce", label: "Ecommerce", icon: <IconCart /> },
   { key: "traffico", label: "Traffico", icon: <IconTraffic /> },
   { key: "seo", label: "SEO", icon: <IconSearch /> },
-  { key: "email", label: "Email e salute", icon: <IconMail /> },
+  { key: "email", label: "Email", icon: <IconMail /> },
   { key: "roadmap", label: "Roadmap strategica", icon: <IconRoadmap /> },
   { key: "meetings", label: "Meetings", icon: <IconMeetings /> },
 ];
@@ -237,7 +237,7 @@ function DashboardInner() {
               {tab === "ecommerce" && <EcommerceTab data={data} />}
               {tab === "traffico" && <TrafficoTab data={data} />}
               {tab === "seo" && <SEOTab data={data} />}
-              {tab === "email" && <EmailSaluteTab data={data} />}
+              {tab === "email" && <EmailTab data={data} />}
             </>
           )}
         </main>
