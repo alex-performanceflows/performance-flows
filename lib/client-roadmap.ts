@@ -13,6 +13,7 @@ import { fetchPageBlocks, hasPageContent, notionGet, type ContentBlock } from "@
 export const CRM_CLIENT_IDS = {
   gondolina: "37537be1-b168-80bb-b00a-c74e0fa21380",
   momi: "33e37be1-b168-8069-8b22-ce4125aaecea",
+  onlywood: "32937be1-b168-8035-8f0f-f297196e07ff",
 } as const;
 
 export type ClientKey = keyof typeof CRM_CLIENT_IDS;

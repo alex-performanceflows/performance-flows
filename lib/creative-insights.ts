@@ -254,9 +254,12 @@ export function buildCreativeInsights(creatives: InsightCreative[], cfg: Insight
     }
   }
 
-  // 6. Quanto pesa la creatività che spende di più
-  const spesaTotale = sum(leggibili.map((c) => c.spesa));
-  const perSpesa = [...leggibili].sort((a, b) => b.spesa - a.spesa);
+  // 6. Quanto pesa la creatività che spende di più.
+  // Il denominatore è tutta la spesa del periodo, non solo quella delle
+  // creatività sopra la soglia di lettura: altrimenti basta che le leggibili
+  // siano tre perché la quota risulti del 100%.
+  const spesaTotale = sum(creatives.map((c) => c.spesa));
+  const perSpesa = [...creatives].sort((a, b) => b.spesa - a.spesa);
   if (spesaTotale > 0 && perSpesa.length >= 3) {
     const prime = perSpesa.slice(0, 3);
     const quota = (sum(prime.map((c) => c.spesa)) / spesaTotale) * 100;
