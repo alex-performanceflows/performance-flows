@@ -14,6 +14,7 @@ export const CRM_CLIENT_IDS = {
   gondolina: "37537be1-b168-80bb-b00a-c74e0fa21380",
   momi: "33e37be1-b168-8069-8b22-ce4125aaecea",
   onlywood: "32937be1-b168-8035-8f0f-f297196e07ff",
+  coorie: "36037be1-b168-80cd-80c4-c1b73056e1cc",
 } as const;
 
 export type ClientKey = keyof typeof CRM_CLIENT_IDS;

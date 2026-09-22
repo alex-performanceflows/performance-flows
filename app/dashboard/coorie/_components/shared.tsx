@@ -18,6 +18,8 @@ export type BlendedWindow = {
 
 export type CreativeSet = { label: string; days: number; rows: (string | number)[][] };
 
+export type SourceStatus = { fonte: string; ok: boolean; messaggio: string; ms: number };
+
 export type Health = {
   pixel_coverage_pct: number;
   gads_coverage_pct: number;
@@ -25,6 +27,16 @@ export type Health = {
   gsc_lag_days: number;
   ga4_first_date: string;
   klaviyo_active: boolean;
+  // dal motore 2.0
+  creativita_non_classificate_pct?: number;
+  sources?: SourceStatus[];
+  aggiornato?: string;
+};
+
+export type MetaBenchmark = {
+  affidabile: boolean; n: number;
+  ctr_link: number | null; costo_atc: number | null;
+  cpm: number | null; roas: number | null; hook: number | null;
 };
 
 export type CoorieData = {
@@ -39,6 +51,27 @@ export type CoorieData = {
     campaigns_daily?: (string | number)[][];
     // [campagna, obiettivo, metodo, spesa]
     classificazione?: (string | number)[][];
+
+    // ─── dal motore 2.0 ───
+    creative_head?: string[];
+    // [data, creativita, formato, soggetto, spesa, impression, clickLink, atc, acquisti, valore]
+    creatives_daily?: (string | number)[][];
+    creative_daily_head?: string[];
+    // [nome, formato, soggetto, verdetto, motivo, spesa, costoAtc, atc, acquisti, roas, freq, ctrLink, giorni]
+    verdetti?: (string | number)[][];
+    verdetti_head?: string[];
+    benchmark?: MetaBenchmark;
+    // [valore, spesa, impression, clickLink, ctrLink%, atc, costoAtc, acquisti, valoreAcq, roas, hook%]
+    per_formato?: (string | number)[][];
+    per_soggetto?: (string | number)[][];
+    agg_head?: string[];
+    // [pubblico, campagna, spesa, impression, freq, clickLink, ctrLink%, cpm, atc, costoAtc, acquisti, roas, cpa]
+    adsets_w30?: (string | number)[][];
+    adset_head?: string[];
+    // [valore, spesa, impression, click, ctr%, cpm, atc, acquisti, valoreAcq, roas]
+    paesi_w30?: (string | number)[][];
+    placement_w30?: (string | number)[][];
+    break_head?: string[];
   };
 
   // [tipo, imp, click, ctr, costo, conv, cpa, ?, ?, valore, roas, ?]
@@ -66,6 +99,12 @@ export type CoorieData = {
     };
     items?: { w30?: (string | number)[][]; w90?: (string | number)[][] };
     totals?: { w7?: CoorieTotals; w30?: CoorieTotals; w90?: CoorieTotals; p30?: CoorieTotals };
+    // ─── dal motore 2.0 ───
+    // [data, sessioni, item_visti, atc, checkout, acquisti, revenue]
+    funnel_daily?: (string | number)[][];
+    funnel_head?: string[];
+    // [landing, sessioni, bounce_rate, transazioni, revenue]
+    landing_w30?: (string | number)[][];
   };
 
   gsc?: {
@@ -73,6 +112,10 @@ export type CoorieData = {
     daily?: (string | number)[][];
     queries_w30?: (string | number)[][];
     pages_w30?: (string | number)[][];
+    // dal motore 2.0
+    ultimo_giorno?: string | null;
+    queries_w90?: (string | number)[][];
+    devices_w30?: (string | number)[][];
   };
 
   klaviyo?: {
@@ -116,6 +159,8 @@ export const NEUTRAL = "rgba(148,163,184,0.9)";
 
 // ─── Re-export UI + theme da VitaeDNA shared ──────────────────────
 
+import { useTheme, fmtDate } from "../../vitaedna/_components/shared";
+
 export {
   ThemeProvider, useTheme, DARK_PALETTE, LIGHT_PALETTE,
   type Theme, type Palette,
@@ -123,6 +168,12 @@ export {
   InfoTooltip, Sparkline,
   eur, eur0, integer, num, pctStr, fmtDate, fmtDateTime,
   calcDelta, invertDeltaColor, type DeltaInfo,
+} from "../../vitaedna/_components/shared";
+
+export {
+  type CreativeWindow, WINDOW_DAYS, creativeWindowFor,
+  type SortDir, type SortState, type SortValue, useTableSort, SortTh,
+  ratio, mean, AVG_TITLE, avgRowStyle, useElementWidth,
 } from "../../vitaedna/_components/shared";
 
 // ─── Date range system ────────────────────────────────────────────
@@ -300,7 +351,7 @@ export function DateRangeProvider({
 
 // ─── Nav context ──────────────────────────────────────────────────
 
-export type TabKey = "panoramica" | "advertising" | "ecommerce" | "traffico" | "seo" | "email";
+export type TabKey = "panoramica" | "advertising" | "creativita" | "ecommerce" | "traffico" | "seo" | "email" | "roadmap" | "meetings";
 
 export const NavContext = createContext<{ setTab: (t: TabKey) => void }>({ setTab: () => {} });
 export function useNav() { return useContext(NavContext); }
@@ -364,4 +415,134 @@ export function fasciaProdotto(fascia: string): "Bundle" | "Full Size" | "Altro"
   if (f.includes("bundle")) return "Bundle";
   if (f.includes("full")) return "Full Size";
   return "Altro";
+}
+
+// ─── Serie giornaliere per le sparkline dei KPI ───────────────────
+
+export type DayMap = Map<string, number>;
+export type Spark = { values: number[]; labels: string[] };
+
+function addTo(map: DayMap, day: string, v: number) {
+  map.set(day, (map.get(day) ?? 0) + v);
+}
+
+export type DailyMaps = {
+  metaSpend: DayMap; metaAtc: DayMap; metaAcquisti: DayMap; metaValore: DayMap;
+  gadsSpend: DayMap; gadsConv: DayMap; gadsValore: DayMap;
+  sessions: DayMap; users: DayMap; transactions: DayMap; revenue: DayMap;
+  gscClicks: DayMap; gscImpr: DayMap; gscPosWeighted: DayMap;
+  gscLast: string | null; ga4First: string | null;
+};
+
+/** Totali per giorno delle metriche che compaiono nei KPI, calcolati una volta per payload. */
+export function useDailyMaps(data: CoorieData): DailyMaps {
+  return useMemo(() => {
+    const m: DailyMaps = {
+      metaSpend: new Map(), metaAtc: new Map(), metaAcquisti: new Map(), metaValore: new Map(),
+      gadsSpend: new Map(), gadsConv: new Map(), gadsValore: new Map(),
+      sessions: new Map(), users: new Map(), transactions: new Map(), revenue: new Map(),
+      gscClicks: new Map(), gscImpr: new Map(), gscPosWeighted: new Map(),
+      gscLast: data.gsc?.ultimo_giorno ?? null,
+      ga4First: data.health?.ga4_first_date ?? data.ga4?.first_date ?? null,
+    };
+    // [data, campagna, obiettivo, spesa, imp, click, ctr, lpv, atc, checkout, acquisti, valore]
+    for (const r of data.meta?.campaigns_daily ?? []) {
+      const d = String(r[0]);
+      addTo(m.metaSpend, d, Number(r[3]) || 0);
+      addTo(m.metaAtc, d, Number(r[8]) || 0);
+      addTo(m.metaAcquisti, d, Number(r[10]) || 0);
+      addTo(m.metaValore, d, Number(r[11]) || 0);
+    }
+    // [data, campagna, tipo, costo, imp, click, ctr, conv, valore]
+    for (const r of data.gads_daily ?? []) {
+      const d = String(r[0]);
+      addTo(m.gadsSpend, d, Number(r[3]) || 0);
+      addTo(m.gadsConv, d, Number(r[7]) || 0);
+      addTo(m.gadsValore, d, Number(r[8]) || 0);
+    }
+    // [data, sessions, users, transactions, revenue]
+    for (const r of data.ga4?.daily ?? []) {
+      const d = String(r[0]);
+      addTo(m.sessions, d, Number(r[1]) || 0);
+      addTo(m.users, d, Number(r[2]) || 0);
+      addTo(m.transactions, d, Number(r[3]) || 0);
+      addTo(m.revenue, d, Number(r[4]) || 0);
+    }
+    // [data, click, impression, ctr, posizione]
+    for (const r of data.gsc?.daily ?? []) {
+      const d = String(r[0]);
+      const imp = Number(r[2]) || 0;
+      addTo(m.gscClicks, d, Number(r[1]) || 0);
+      addTo(m.gscImpr, d, imp);
+      addTo(m.gscPosWeighted, d, (Number(r[4]) || 0) * imp);
+      if (!m.gscLast || d > m.gscLast) m.gscLast = d;
+    }
+    return m;
+  }, [data]);
+}
+
+/**
+ * Costruisce una sparkline sul periodo selezionato.
+ *
+ * - `num` da sole: somma per gruppo. Con `den`: rapporto dei totali per gruppo
+ *   (mai media dei rapporti giornalieri), moltiplicato per `scale`.
+ * - `from`/`to` escludono i giorni senza dati alla fonte (GA4 prima del primo
+ *   giorno, Search Console negli ultimi giorni non ancora rilasciati): lì uno
+ *   zero disegnerebbe un calo che non esiste.
+ * - Oltre ~30 punti i giorni vengono raggruppati, partendo dal più recente.
+ */
+export function buildSpark(
+  range: DateRange,
+  opts: { num: DayMap[]; den?: DayMap[]; scale?: number; from?: string | null; to?: string | null; maxPoints?: number },
+): Spark {
+  const dates: string[] = [];
+  const start = opts.from && opts.from > range.start ? opts.from : range.start;
+  const end = opts.to && opts.to < range.end ? opts.to : range.end;
+  if (!start || !end || start > end) return { values: [], labels: [] };
+  for (let d = start; d <= end; d = addDaysISO(d, 1)) dates.push(d);
+  if (dates.length < 2) return { values: [], labels: [] };
+
+  const size = Math.max(1, Math.ceil(dates.length / (opts.maxPoints ?? 30)));
+  const buckets: string[][] = [];
+  for (let i = dates.length; i > 0; i -= size) buckets.unshift(dates.slice(Math.max(0, i - size), i));
+  // Un primo gruppo incompleto farebbe sembrare un calo iniziale sulle somme
+  if (!opts.den && buckets.length > 2 && buckets[0].length < size) buckets.shift();
+
+  const sum = (maps: DayMap[], days: string[]) =>
+    days.reduce((acc, day) => acc + maps.reduce((a, mp) => a + (mp.get(day) ?? 0), 0), 0);
+
+  const values: number[] = [];
+  const labels: string[] = [];
+  for (const b of buckets) {
+    const n = sum(opts.num, b);
+    let v = n;
+    if (opts.den) {
+      const d = sum(opts.den, b);
+      if (d <= 0) continue;
+      v = (n / d) * (opts.scale ?? 1);
+    }
+    values.push(v);
+    labels.push(b.length === 1 ? fmtDate(b[0]) : `${fmtDate(b[0])}–${fmtDate(b[b.length - 1])}`);
+  }
+
+  // Due punti disegnano una retta che sembra una tendenza anche quando non lo
+  // e'. Sui rapporti serve ancora piu' prudenza: i gruppi senza denominatore
+  // vengono saltati, quindi con pochi ordini restano pochissimi punti veri.
+  const minimo = opts.den ? 4 : 3;
+  return values.length >= minimo ? { values, labels } : { values: [], labels: [] };
+}
+
+/** Props sparkline pronte per KpiTile: linea recessiva, ultimo gruppo in accento. */
+export function useSparkProps(accent: string) {
+  const { palette } = useTheme();
+  return (spark: Spark, format: (v: number) => string) =>
+    spark.values.length >= 2
+      ? {
+          sparkline: spark.values,
+          sparklineLabels: spark.labels,
+          sparklineFormat: format,
+          sparklineColor: palette.textDim,
+          sparklineEndColor: accent,
+        }
+      : {};
 }

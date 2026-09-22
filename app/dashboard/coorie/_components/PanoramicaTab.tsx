@@ -12,6 +12,7 @@ import {
   Card, CardHeader, KpiTile, SectionTitle, EmptyState,
   ACCENT, SAND, CHART_PALETTE, COMPARE_LABEL,
   sumInRange, dailyInRange, groupSumInRange, isRangeBeforeFirstData,
+  useDailyMaps, buildSpark, useSparkProps,
 } from "./shared";
 
 const GA4_TOOLTIP = "Ricavi da GA4 ecommerce: sottostimati rispetto agli ordini reali finché il tracking non è completo.";
@@ -50,6 +51,25 @@ export function PanoramicaTab({ data }: { data: CoorieData }) {
   // Click organici
   const clickOrgCur = sumInRange(data.gsc?.daily, range, 1);
   const clickOrgPrev = compareRange ? sumInRange(data.gsc?.daily, compareRange, 1) : null;
+
+  // ─── Sparkline sotto i KPI ─────────────────────────────────────
+  const dm = useDailyMaps(data);
+  const spark = useSparkProps(ACCENT);
+  const sp = useMemo(() => {
+    const spesa = [dm.metaSpend, dm.gadsSpend];
+    return {
+      spesa: buildSpark(range, { num: spesa }),
+      // Il ROAS parte dal primo giorno GA4: prima non c'era revenue da dividere
+      roas: buildSpark(range, { num: [dm.revenue], den: spesa, from: dm.ga4First }),
+      revenue: buildSpark(range, { num: [dm.revenue], from: dm.ga4First }),
+      transazioni: buildSpark(range, { num: [dm.transactions], from: dm.ga4First }),
+      cpo: buildSpark(range, { num: spesa, den: [dm.transactions], from: dm.ga4First }),
+      aov: buildSpark(range, { num: [dm.revenue], den: [dm.transactions], from: dm.ga4First }),
+      sessioni: buildSpark(range, { num: [dm.sessions], from: dm.ga4First }),
+      // Search Console rilascia i dati con qualche giorno di ritardo
+      clickOrg: buildSpark(range, { num: [dm.gscClicks], to: dm.gscLast }),
+    };
+  }, [dm, range]);
 
   // Chart: barre spesa impilate Meta/Google + linea ricavi
   const chart = useMemo(() => {
@@ -105,24 +125,27 @@ export function PanoramicaTab({ data }: { data: CoorieData }) {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
         <KpiTile label="Spesa adv totale" value={eur0(spesaTot)} delta={spesaTotPrev != null ? calcDelta(spesaTot, spesaTotPrev) : null}
           info={`Meta ${eur0(spesaMeta)} + Google ${eur0(spesaGads)}`} accent={ACCENT}
-          onClick={() => setTab("advertising")} />
+          onClick={() => setTab("advertising")} {...spark(sp.spesa, eur0)} />
         <KpiTile label="ROAS blended GA4" value={num(roasBlended, 2)} delta={roasBlendedPrev != null ? calcDelta(roasBlended, roasBlendedPrev) : null}
           info={`Revenue GA4 ÷ spesa totale. ${GA4_TOOLTIP}`} accent={ACCENT}
-          onClick={() => setTab("advertising")} />
+          onClick={() => setTab("advertising")} {...spark(sp.roas, (v) => num(v, 2))} />
         <KpiTile label="Ricavi GA4" value={eur0(revCur)} delta={revPrev != null ? calcDelta(revCur, revPrev) : null}
           info={GA4_TOOLTIP} accent={ACCENT}
-          onClick={() => setTab("ecommerce")} />
+          onClick={() => setTab("ecommerce")} {...spark(sp.revenue, eur0)} />
         <KpiTile label="Transazioni GA4" value={integer(transCur)} delta={transPrev != null ? calcDelta(transCur, transPrev) : null}
           info={`Transazioni registrate da GA4 sul range. ${GA4_TOOLTIP}`}
-          onClick={() => setTab("ecommerce")} />
+          onClick={() => setTab("ecommerce")} {...spark(sp.transazioni, integer)} />
         <KpiTile label="Costo per ordine" value={transCur > 0 ? eur(cpo) : "—"} delta={cpoPrev != null ? calcDelta(cpo, cpoPrev) : null}
-          info="Spesa adv totale ÷ transazioni GA4. Più basso è meglio." />
+          info="Spesa adv totale ÷ transazioni GA4. Più basso è meglio."
+          {...spark(sp.cpo, eur0)} />
         <KpiTile label="Scontrino medio GA4" value={transCur > 0 ? eur(aovCur) : "—"} delta={aovPrev != null ? calcDelta(aovCur, aovPrev) : null}
-          info={`Revenue GA4 ÷ transazioni GA4. ${GA4_TOOLTIP}`} />
+          info={`Revenue GA4 ÷ transazioni GA4. ${GA4_TOOLTIP}`}
+          {...spark(sp.aov, eur0)} />
         <KpiTile label="Sessioni GA4" value={integer(sessCur)} delta={sessPrev != null ? calcDelta(sessCur, sessPrev) : null}
-          info="Sessioni sul range" onClick={() => setTab("traffico")} />
+          info="Sessioni sul range" onClick={() => setTab("traffico")} {...spark(sp.sessioni, integer)} />
         <KpiTile label="Click organici" value={integer(clickOrgCur)} delta={clickOrgPrev != null ? calcDelta(clickOrgCur, clickOrgPrev) : null}
-          info="Click da Google organico (Search Console). Ritardo ~3g." onClick={() => setTab("seo")} />
+          info="Click da Google organico (Search Console). Ritardo ~3g." onClick={() => setTab("seo")}
+          {...spark(sp.clickOrg, integer)} />
       </div>
 
       {/* Chart principale: spesa stacked Meta/Google + revenue line */}

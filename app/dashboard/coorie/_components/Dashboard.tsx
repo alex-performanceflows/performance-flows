@@ -15,15 +15,24 @@ import { EcommerceTab } from "./EcommerceTab";
 import { TrafficoTab } from "./TrafficoTab";
 import { SEOTab } from "./SEOTab";
 import { EmailSaluteTab } from "./EmailSaluteTab";
+import { CreativitaTab } from "./CreativitaTab";
+import { RoadmapTab } from "./RoadmapTab";
+import { MeetingsTab } from "./MeetingsTab";
 
 const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
   { key: "panoramica", label: "Panoramica", icon: <IconOverview /> },
   { key: "advertising", label: "Advertising", icon: <IconAds /> },
+  { key: "creativita", label: "Creatività", icon: <IconSpark /> },
   { key: "ecommerce", label: "Ecommerce", icon: <IconCart /> },
   { key: "traffico", label: "Traffico", icon: <IconTraffic /> },
   { key: "seo", label: "SEO", icon: <IconSearch /> },
   { key: "email", label: "Email e salute", icon: <IconMail /> },
+  { key: "roadmap", label: "Roadmap strategica", icon: <IconRoadmap /> },
+  { key: "meetings", label: "Meetings", icon: <IconMeetings /> },
 ];
+
+// Roadmap e meeting arrivano da Notion: non dipendono dal motore né dal periodo
+const NOTION_TABS: TabKey[] = ["roadmap", "meetings"];
 
 export function Dashboard() {
   return (
@@ -41,10 +50,11 @@ function DashboardInner() {
   const [tab, setTab] = useState<TabKey>("panoramica");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
-  const load = useCallback(async () => {
+  /** `fresh` salta la cache del proxy: lo usa il pulsante Aggiorna. */
+  const load = useCallback(async (fresh = false) => {
     setLoading(true); setError(null);
     try {
-      const res = await fetch("/api/coorie", { cache: "no-store" });
+      const res = await fetch(fresh ? "/api/coorie?fresh=1" : "/api/coorie", { cache: "no-store" });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
       setData(json as CoorieData);
@@ -58,6 +68,7 @@ function DashboardInner() {
 
   const navCtx = useMemo(() => ({ setTab }), []);
   const isDark = theme === "dark";
+  const isNotionTab = NOTION_TABS.includes(tab);
   const activeLabel = TABS.find((t) => t.key === tab)?.label ?? "";
   const ga4First = data?.health?.ga4_first_date ?? data?.ga4?.first_date;
 
@@ -114,7 +125,7 @@ function DashboardInner() {
                 <button onClick={() => window.print()} title="Stampa" style={iconBtn(palette)}>
                   <IconPrint />
                 </button>
-                <button onClick={load} disabled={loading} title="Aggiorna"
+                <button onClick={() => load(true)} disabled={loading} title="Aggiorna"
                   style={{ ...iconBtn(palette), cursor: loading ? "wait" : "pointer", opacity: loading ? 0.5 : 1 }}>
                   <IconRefresh />
                 </button>
@@ -179,6 +190,7 @@ function DashboardInner() {
         )}
 
         <main className="pf-main">
+          {!isNotionTab && (
           <div className="pf-noprint" style={{ marginBottom: 18 }}>
             <div style={{
               display: "flex", justifyContent: "space-between", alignItems: "center",
@@ -188,8 +200,9 @@ function DashboardInner() {
               <DateRangePicker />
             </div>
           </div>
+          )}
 
-          {error && (
+          {error && !isNotionTab && (
             <div style={{
               background: "rgba(239,68,68,0.10)", border: "1px solid rgba(239,68,68,0.35)",
               color: isDark ? "#fecaca" : "#991b1b",
@@ -201,7 +214,7 @@ function DashboardInner() {
                 <strong style={{ color: isDark ? "#f87171" : "#b91c1c" }}>Errore:</strong>{" "}
                 <span style={{ fontSize: 13 }}>{error}</span>
               </div>
-              <button onClick={load} style={{
+              <button onClick={() => load(true)} style={{
                 padding: "0.5rem 1rem", borderRadius: 8,
                 border: "1px solid rgba(239,68,68,0.4)",
                 background: "rgba(239,68,68,0.15)",
@@ -211,12 +224,16 @@ function DashboardInner() {
             </div>
           )}
 
-          {loading && !data && <SkeletonPage />}
+          {loading && !data && !isNotionTab && <SkeletonPage />}
+
+          {tab === "roadmap" && <RoadmapTab />}
+          {tab === "meetings" && <MeetingsTab />}
 
           {data && (
             <>
               {tab === "panoramica" && <PanoramicaTab data={data} />}
               {tab === "advertising" && <AdvertisingTab data={data} />}
+              {tab === "creativita" && <CreativitaTab data={data} />}
               {tab === "ecommerce" && <EcommerceTab data={data} />}
               {tab === "traffico" && <TrafficoTab data={data} />}
               {tab === "seo" && <SEOTab data={data} />}
@@ -358,6 +375,9 @@ function IconCart() { return <svg width="16" height="16" fill="none" stroke="cur
 function IconTraffic() { return <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" /></svg>; }
 function IconSearch() { return <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>; }
 function IconMail() { return <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" /></svg>; }
+function IconSpark() { return <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 2l2.5 6.5L21 11l-6.5 2.5L12 20l-2.5-6.5L3 11l6.5-2.5L12 2z" /></svg>; }
+function IconRoadmap() { return <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3V6z" /><line x1="9" y1="3" x2="9" y2="18" /><line x1="15" y1="6" x2="15" y2="21" /></svg>; }
+function IconMeetings() { return <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" /></svg>; }
 function IconRefresh() { return <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" /><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" /></svg>; }
 function IconSun() { return <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" /></svg>; }
 function IconMoon() { return <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" /></svg>; }
