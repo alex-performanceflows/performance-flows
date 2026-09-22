@@ -8,7 +8,7 @@ import {
   NavContext, TabKey,
   type Palette,
 } from "./shared";
-import { ACCENT, BRAND_DARK, CREAM } from "../config";
+import { ACCENT, BRAND_DARK, CREAM, WOOD } from "../config";
 import { Logo } from "./Logo";
 import { DateRangePicker } from "./DateRangePicker";
 import { PanoramicaTab } from "./PanoramicaTab";
@@ -365,6 +365,14 @@ function StoreStatus({ active }: { active: boolean }) {
     );
   }
   if (!store) return <span />;
+  if (store.fonti_mancanti?.length) {
+    return (
+      <span style={{ fontSize: 11, color: WOOD }}>
+        Da WooCommerce non sono arrivate tutte le voci di questa lettura:{" "}
+        {store.fonti_mancanti.join(", ")}. Il resto è aggiornato.
+      </span>
+    );
+  }
   return (
     <span style={{ fontSize: 11, color: palette.textDim }}>
       Ordini e prodotti letti da WooCommerce

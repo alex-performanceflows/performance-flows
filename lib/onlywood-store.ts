@@ -59,6 +59,8 @@ export type StoreData = {
   scorte_basse: { nome: string; sku: string; stock: number | null }[];
   ordini_campione: number;      // quanti ordini sono stati letti nel dettaglio
   ordini_totali: number;
+  /** Voci che il negozio non ha servito in questa lettura. */
+  fonti_mancanti: string[];
   aggiornato: string;
 };
 
@@ -80,15 +82,56 @@ function base(analytics: boolean): string {
 
 type WcResponse<T> = { rows: T; total: number };
 
+const attesa = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Il negozio sta dietro Cloudflare e sotto sforzo risponde 5xx o 52x invece di
+ * servire la richiesta: un paio di tentativi distanziati bastano quasi sempre.
+ * L'User-Agent è esplicito perché una richiesta anonima da datacenter è il
+ * profilo che i filtri davanti al sito trattano peggio.
+ */
 async function wc<T>(path: string, params: Record<string, string | number>, analytics = true): Promise<WcResponse<T>> {
   const qs = new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)]));
   const url = `${base(analytics)}${path}?${qs}`;
-  const res = await fetch(url, { headers: { Authorization: auth() }, cache: "no-store" });
-  if (!res.ok) {
-    const detail = await res.text();
-    throw new Error(`WooCommerce ${res.status} su ${path}: ${detail.slice(0, 160)}`);
+  const headers = {
+    Authorization: auth(),
+    Accept: "application/json",
+    "User-Agent": "PerformanceFlows-Dashboard/1.0 (+https://performanceflows.com)",
+  };
+
+  let ultimo = "";
+  for (let tentativo = 0; tentativo < 3; tentativo++) {
+    if (tentativo > 0) await attesa(1500 * tentativo);
+    let res: Response;
+    try {
+      res = await fetch(url, { headers, cache: "no-store", signal: AbortSignal.timeout(45000) });
+    } catch (e) {
+      ultimo = e instanceof Error ? e.message : "connessione non riuscita";
+      continue;
+    }
+    if (res.ok) {
+      return { rows: (await res.json()) as T, total: Number(res.headers.get("x-wp-total") || 0) };
+    }
+    const detail = (await res.text()).replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+    ultimo = `${res.status} · ${detail.slice(0, 120)}`;
+    // Su 4xx ritentare non serve: la richiesta è sbagliata o non autorizzata
+    if (res.status < 500) break;
   }
-  return { rows: (await res.json()) as T, total: Number(res.headers.get("x-wp-total") || 0) };
+  throw new Error(`WooCommerce ${path}: ${ultimo}`);
+}
+
+/** Tiene in volo al massimo `limite` richieste: il negozio non regge di più. */
+async function aScaglioni<T>(compiti: (() => Promise<T>)[], limite: number): Promise<T[]> {
+  const esiti = new Array<T>(compiti.length);
+  let prossimo = 0;
+  const corsie = Array.from({ length: Math.min(limite, compiti.length) }, async () => {
+    while (prossimo < compiti.length) {
+      const i = prossimo++;
+      esiti[i] = await compiti[i]();
+    }
+  });
+  await Promise.all(corsie);
+  return esiti;
 }
 
 const n2 = (v: unknown) => Math.round((Number(v) || 0) * 100) / 100;
@@ -236,13 +279,15 @@ async function fetchOrders(from: string, to: string): Promise<{ orders: WcOrder[
   }, false);
   const total = first.total;
   const pages = Math.min(Math.ceil(total / PER_PAGE), MAX_ORDER_PAGES);
-  const rest = await Promise.all(
-    Array.from({ length: Math.max(0, pages - 1) }, (_, i) =>
+  // Le pagine successive due per volta: sono le risposte piu' pesanti di tutte
+  const rest = await aScaglioni(
+    Array.from({ length: Math.max(0, pages - 1) }, (_, i) => () =>
       wc<WcOrder[]>("/orders", {
         after: startOf(from), before: endOf(to), per_page: PER_PAGE, page: i + 2,
         orderby: "date", order: "desc",
-      }, false).then((r) => r.rows),
+      }, false).then((r) => r.rows).catch(() => [] as WcOrder[]),
     ),
+    2,
   );
   return { orders: [first.rows, ...rest].flat(), total };
 }
@@ -252,20 +297,39 @@ async function fetchOrders(from: string, to: string): Promise<{ orders: WcOrder[
 export async function fetchStoreData(from: string, to: string, prevFrom?: string, prevTo?: string): Promise<StoreData> {
   const window = { after: startOf(from), before: endOf(to) };
 
-  const [stats, prevStats, products, categories, variations, coupons, analyticsOrders, ordersDetail, stock] =
-    await Promise.all([
-      wc<RevenueStats>("/reports/revenue/stats", { ...window, interval: "day", per_page: 100 }),
-      prevFrom && prevTo
-        ? wc<RevenueStats>("/reports/revenue/stats", { after: startOf(prevFrom), before: endOf(prevTo), interval: "year", per_page: 1 })
-        : Promise.resolve(null),
-      fetchProducts(window),
-      wc<ReportRow[]>("/reports/categories", { ...window, per_page: 30, orderby: "net_revenue", order: "desc", extended_info: "true" }),
-      wc<ReportRow[]>("/reports/variations", { ...window, per_page: 30, orderby: "net_revenue", order: "desc", extended_info: "true" }),
-      wc<ReportRow[]>("/reports/coupons", { ...window, per_page: 20, orderby: "amount", order: "desc", extended_info: "true" }),
-      wc<AnalyticsOrder[]>("/reports/orders", { ...window, per_page: 100, orderby: "date", order: "desc" }),
-      fetchOrders(from, to),
-      wc<StockRow[]>("/reports/stock", { per_page: 20, status: "lowstock", orderby: "stock_quantity", order: "asc" }).catch(() => ({ rows: [], total: 0 })),
-    ]);
+  // Ogni blocco è indipendente: se il negozio non serve una voce, le altre
+  // arrivano lo stesso e la dashboard dice cosa manca invece di non aprirsi.
+  const mancanti: string[] = [];
+  function conRete<T>(nome: string, fallback: T) {
+    return async (p: Promise<T>): Promise<T> => {
+      try { return await p; }
+      catch { mancanti.push(nome); return fallback; }
+    };
+  }
+
+  // Le prime due servono i totali: senza quelle non c'è dashboard.
+  const stats = await wc<RevenueStats>("/reports/revenue/stats", { ...window, interval: "day", per_page: 100 });
+
+  const vuoto = { rows: [] as ReportRow[], total: 0 };
+  const [prevStats, products, categories, variations, coupons, analyticsOrders, ordersDetail, stock] =
+    await aScaglioni<unknown>([
+      () => conRete<WcResponse<RevenueStats> | null>("periodo di confronto", null)(
+        prevFrom && prevTo
+          ? wc<RevenueStats>("/reports/revenue/stats", { after: startOf(prevFrom), before: endOf(prevTo), interval: "year", per_page: 1 })
+          : Promise.resolve(null),
+      ),
+      () => conRete<StoreProduct[]>("prodotti", [])(fetchProducts(window)),
+      () => conRete("categorie", vuoto)(wc<ReportRow[]>("/reports/categories", { ...window, per_page: 30, orderby: "net_revenue", order: "desc", extended_info: "true" })),
+      () => conRete("varianti", vuoto)(wc<ReportRow[]>("/reports/variations", { ...window, per_page: 30, orderby: "net_revenue", order: "desc", extended_info: "true" })),
+      () => conRete("coupon", vuoto)(wc<ReportRow[]>("/reports/coupons", { ...window, per_page: 20, orderby: "amount", order: "desc", extended_info: "true" })),
+      () => conRete("tipo cliente e stati", { rows: [] as AnalyticsOrder[], total: 0 })(wc<AnalyticsOrder[]>("/reports/orders", { ...window, per_page: 100, orderby: "date", order: "desc" })),
+      () => conRete("dettaglio ordini", { orders: [] as WcOrder[], total: 0 })(fetchOrders(from, to)),
+      () => conRete("magazzino", { rows: [] as StockRow[], total: 0 })(wc<StockRow[]>("/reports/stock", { per_page: 20, status: "lowstock", orderby: "stock_quantity", order: "asc" })),
+    ], 3) as [
+      WcResponse<RevenueStats> | null, StoreProduct[],
+      WcResponse<ReportRow[]>, WcResponse<ReportRow[]>, WcResponse<ReportRow[]>,
+      WcResponse<AnalyticsOrder[]>, { orders: WcOrder[]; total: number }, WcResponse<StockRow[]>,
+    ];
 
   const totals = toTotals(stats.rows.totals);
 
@@ -348,6 +412,7 @@ export async function fetchStoreData(from: string, to: string, prevFrom?: string
     scorte_basse: stock.rows.map((s) => ({ nome: s.name, sku: s.sku, stock: s.stock_quantity })),
     ordini_campione: orders.length,
     ordini_totali: ordersDetail.total,
+    fonti_mancanti: mancanti,
     aggiornato: new Date().toISOString(),
   };
 }
