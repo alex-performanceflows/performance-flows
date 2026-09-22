@@ -12,6 +12,10 @@ const load = unstable_cache(
   { revalidate: 900, tags: ["onlywood-store"] },
 );
 
+// Una lettura a freddo del negozio arriva a superare il minuto: il valore di
+// serie non basterebbe e la richiesta verrebbe troncata a metà.
+export const maxDuration = 120;
+
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 
 export async function GET(request: Request) {
