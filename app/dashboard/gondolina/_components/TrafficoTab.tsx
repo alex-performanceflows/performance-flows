@@ -9,16 +9,18 @@ import {
   GondolinaData, useDateRange, useTheme,
   calcDelta, eur, eur0, integer, num, pctStr, fmtDate,
   Card, CardHeader, KpiTile, SectionTitle, EmptyState, Pill, tableStyles,
-  ACCENT, GOLD, CHART_PALETTE, COMPARE_LABEL,
+  ACCENT, GOLD, CHART_PALETTE, COMPARE_LABEL, POSITIVE, NEUTRAL,
+  type DateRange,
   sumInRange, dailyInRange, groupInRange,
 } from "./shared";
 
-type SubTab = "andamento" | "funnel" | "canali" | "sources" | "landing" | "prodotti" | "pubblico";
+type SubTab = "andamento" | "funnel" | "canali" | "paid" | "sources" | "landing" | "prodotti" | "pubblico";
 
 const SUB: { key: SubTab; label: string }[] = [
   { key: "andamento", label: "Andamento" },
   { key: "funnel", label: "Funnel" },
   { key: "canali", label: "Canali" },
+  { key: "paid", label: "Paid vs organico" },
   { key: "sources", label: "Sorgenti e campagne (30g)" },
   { key: "landing", label: "Landing page (30g)" },
   { key: "prodotti", label: "Prodotti" },
@@ -51,6 +53,7 @@ export function TrafficoTab({ data }: { data: GondolinaData }) {
       {sub === "andamento" && <AndamentoView data={data} />}
       {sub === "funnel" && <FunnelView data={data} />}
       {sub === "canali" && <CanaliView data={data} />}
+      {sub === "paid" && <PaidOrganicoView data={data} />}
       {sub === "sources" && <SourcesView data={data} />}
       {sub === "landing" && <LandingView data={data} />}
       {sub === "prodotti" && <ProdottiView data={data} />}
@@ -211,7 +214,12 @@ function CanaliView({ data }: { data: GondolinaData }) {
     }).sort((a, b) => b.sess - a.sess);
   }, [data.ga4?.channels_daily, range]);
 
-  const prev = useMemo(() => compareRange ? groupInRange(data.ga4?.channels_daily, compareRange, 1, [2]) : null, [data.ga4?.channels_daily, compareRange]);
+  // Stesso criterio della vista Paid: niente delta se la storia non copre il periodo prima
+  const coperto = useMemo(
+    () => confrontoCoperto(data.ga4?.channels_daily ?? [], compareRange),
+    [data.ga4?.channels_daily, compareRange],
+  );
+  const prev = useMemo(() => coperto ? groupInRange(data.ga4?.channels_daily, compareRange!, 1, [2]) : null, [data.ga4?.channels_daily, compareRange, coperto]);
 
   // Area chart: canali nel tempo (top 5)
   const topChans = rows.slice(0, 5).map((r) => r.canale);
@@ -238,7 +246,7 @@ function CanaliView({ data }: { data: GondolinaData }) {
               <tr>
                 <th style={ts.th}>Canale</th>
                 <th style={{ ...ts.th, ...ts.thRight }}>Sessioni</th>
-                {compareRange && <th style={{ ...ts.th, ...ts.thRight }}>Δ sess.</th>}
+                {coperto && <th style={{ ...ts.th, ...ts.thRight }}>Δ sess.</th>}
                 <th style={{ ...ts.th, ...ts.thRight }}>Utenti</th>
                 <th style={{ ...ts.th, ...ts.thRight }}>Nuovi</th>
                 <th style={{ ...ts.th, ...ts.thRight }}>Trans. GA4</th>
@@ -254,7 +262,7 @@ function CanaliView({ data }: { data: GondolinaData }) {
                   <tr key={i}>
                     <td style={{ ...ts.tdBase, color: r.trans > 0 ? GOLD : palette.text, fontWeight: r.trans > 0 ? 600 : 500 }}>{r.canale}</td>
                     <td style={{ ...ts.tdBase, ...ts.tdRight }}>{integer(r.sess)}</td>
-                    {compareRange && <td style={{ ...ts.tdBase, ...ts.tdRight, color: d?.color ?? ts.tdBase.color, fontWeight: 600 }}>{d ? `${d.arrow} ${d.label}` : "—"}</td>}
+                    {coperto && <td style={{ ...ts.tdBase, ...ts.tdRight, color: d?.color ?? ts.tdBase.color, fontWeight: 600 }}>{d ? `${d.arrow} ${d.label}` : "—"}</td>}
                     <td style={{ ...ts.tdBase, ...ts.tdRight }}>{integer(r.users)}</td>
                     <td style={{ ...ts.tdBase, ...ts.tdRight }}>{integer(r.nuovi)}</td>
                     <td style={{ ...ts.tdBase, ...ts.tdRight, fontWeight: r.trans > 0 ? 700 : 400 }}>{integer(r.trans)}</td>
@@ -285,6 +293,264 @@ function CanaliView({ data }: { data: GondolinaData }) {
             </ResponsiveContainer>
           </div>
         )}
+      </Card>
+    </div>
+  );
+}
+
+// ── 3c-bis Paid vs organico ───────────────────────────────────────
+
+type Gruppo = "Paid" | "Organico" | "Diretto" | "Altro";
+
+const GRUPPI: Gruppo[] = ["Paid", "Organico", "Diretto", "Altro"];
+
+/** Colore per gruppo, non per posizione in classifica: non cambia se cambia l'ordine. */
+const COLORE_GRUPPO: Record<Gruppo, string> = {
+  Paid: ACCENT,
+  Organico: POSITIVE,
+  Diretto: GOLD,
+  Altro: NEUTRAL,
+};
+
+/**
+ * GA4 non dice "paid" e "non paid": dice il canale. Display e Cross-network
+ * (Performance Max, Advantage+) sono traffico comprato quanto Paid Search,
+ * quindi stanno con i paid; la tabella in fondo mostra sempre chi sta dove,
+ * così la scelta è verificabile e non nascosta.
+ */
+function gruppoDiCanale(canale: string): Gruppo {
+  const c = canale.trim();
+  if (/^paid/i.test(c) || /^(display|cross-network|affiliates)$/i.test(c)) return "Paid";
+  if (/^organic/i.test(c)) return "Organico";
+  if (/^direct$/i.test(c)) return "Diretto";
+  return "Altro";
+}
+
+/**
+ * La serie dei canali non parte dall'inizio dei tempi: se il periodo di
+ * confronto comincia prima del primo giorno disponibile, il delta metterebbe
+ * un mese pieno contro mezzo mese e uscirebbero +1.900%. Meglio nessun delta
+ * che un delta finto.
+ */
+function confrontoCoperto(righe: (string | number)[][], compareRange: DateRange | null): boolean {
+  if (!compareRange || righe.length === 0) return false;
+  let min = "";
+  for (const row of righe) {
+    const d = String(row[0]);
+    if (!min || d < min) min = d;
+  }
+  return Boolean(min) && compareRange.start >= min;
+}
+
+type Aggregato = { sess: number; users: number; nuovi: number; trans: number; rev: number };
+
+/** Somma le righe giornaliere dei canali dentro un periodo, raccolte per gruppo. */
+function aggregaPerGruppo(righe: (string | number)[][], r: DateRange | null): Map<Gruppo, Aggregato> {
+  const m = new Map<Gruppo, Aggregato>();
+  for (const g of GRUPPI) m.set(g, { sess: 0, users: 0, nuovi: 0, trans: 0, rev: 0 });
+  if (!r) return m;
+  for (const row of righe) {
+    const d = String(row[0]); if (d < r.start || d > r.end) continue;
+    const g = m.get(gruppoDiCanale(String(row[1])))!;
+    g.sess += Number(row[2]) || 0;
+    g.users += Number(row[3]) || 0;
+    g.nuovi += Number(row[4]) || 0;
+    g.trans += Number(row[5]) || 0;
+    g.rev += Number(row[6]) || 0;
+  }
+  return m;
+}
+
+function PaidOrganicoView({ data }: { data: GondolinaData }) {
+  const { palette } = useTheme();
+  const { range, compareRange, compare } = useDateRange();
+  const ts = tableStyles(palette);
+
+  // Il ?? crea un array nuovo a ogni render: memorizzato, i calcoli sotto non ripartono
+  const righe = useMemo(() => data.ga4?.channels_daily ?? [], [data.ga4?.channels_daily]);
+
+  const ora = useMemo(() => aggregaPerGruppo(righe, range), [righe, range]);
+  const prima = useMemo(() => aggregaPerGruppo(righe, compareRange), [righe, compareRange]);
+  const coperto = useMemo(() => confrontoCoperto(righe, compareRange), [righe, compareRange]);
+
+  const totSess = GRUPPI.reduce((a, g) => a + (ora.get(g)?.sess ?? 0), 0);
+  const totTrans = GRUPPI.reduce((a, g) => a + (ora.get(g)?.trans ?? 0), 0);
+  const paid = ora.get("Paid")!;
+  const nonPaid = {
+    sess: totSess - paid.sess,
+    trans: totTrans - paid.trans,
+    rev: GRUPPI.reduce((a, g) => a + (ora.get(g)?.rev ?? 0), 0) - paid.rev,
+  };
+  const quotaPaid = totSess > 0 ? (paid.sess / totSess) * 100 : 0;
+  const paidPrima = prima.get("Paid")!;
+  const totSessPrima = GRUPPI.reduce((a, g) => a + (prima.get(g)?.sess ?? 0), 0);
+  const quotaPrima = totSessPrima > 0 ? (paidPrima.sess / totSessPrima) * 100 : 0;
+
+  // Serie giornaliera impilata
+  const serie = useMemo(() => {
+    const byDate = new Map<string, Record<string, string | number>>();
+    for (const row of righe) {
+      const d = String(row[0]); if (d < range.start || d > range.end) continue;
+      const g = gruppoDiCanale(String(row[1]));
+      const r = byDate.get(d) ?? { date: d, label: fmtDate(d), Paid: 0, Organico: 0, Diretto: 0, Altro: 0 };
+      r[g] = (Number(r[g]) || 0) + (Number(row[2]) || 0);
+      byDate.set(d, r);
+    }
+    return Array.from(byDate.values()).sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  }, [righe, range]);
+
+  // Quali canali finiscono in quale gruppo, nel periodo scelto
+  const canaliPerGruppo = useMemo(() => {
+    const m = new Map<Gruppo, Map<string, number>>();
+    for (const g of GRUPPI) m.set(g, new Map());
+    for (const row of righe) {
+      const d = String(row[0]); if (d < range.start || d > range.end) continue;
+      const canale = String(row[1]);
+      const dentro = m.get(gruppoDiCanale(canale))!;
+      dentro.set(canale, (dentro.get(canale) ?? 0) + (Number(row[2]) || 0));
+    }
+    return m;
+  }, [righe, range]);
+
+  if (righe.length === 0) {
+    return <Card><CardHeader title="Paid vs organico" /><EmptyState /></Card>;
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {compareRange && !coperto && (
+        <div style={{
+          background: palette.divider, border: `1px solid ${palette.cardBorder}`,
+          borderRadius: 10, padding: "0.6rem 0.9rem", fontSize: 12, color: palette.textMuted,
+        }}>
+          Confronto non disponibile: la serie dei canali non copre ancora tutto il periodo precedente.
+        </div>
+      )}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12 }}>
+        <KpiTile
+          label="Sessioni a pagamento" value={integer(paid.sess)}
+          delta={coperto ? calcDelta(paid.sess, paidPrima.sess) : null}
+          accent={ACCENT}
+          sub={`${pctStr(quotaPaid, 1)} del traffico`}
+          info="Paid Search, Paid Social, Paid Video, Paid Other, Display e Cross-network."
+        />
+        <KpiTile
+          label="Sessioni non a pagamento" value={integer(nonPaid.sess)}
+          delta={coperto ? calcDelta(nonPaid.sess, totSessPrima - paidPrima.sess) : null}
+          sub="organico, diretto, email, referral"
+        />
+        <KpiTile
+          label="Quota paid" value={pctStr(quotaPaid, 1)}
+          delta={coperto ? calcDelta(quotaPaid, quotaPrima) : null}
+          sub={coperto ? `prima ${pctStr(quotaPrima, 1)}` : undefined}
+        />
+        <KpiTile
+          label="Transazioni paid" value={integer(paid.trans)}
+          sub={`${integer(nonPaid.trans)} non paid`}
+        />
+        <KpiTile
+          label="Revenue paid" value={eur0(paid.rev)}
+          sub={`${eur0(nonPaid.rev)} non paid`}
+        />
+        <KpiTile
+          label="CVR paid" value={pctStr(paid.sess > 0 ? (paid.trans / paid.sess) * 100 : 0, 2)}
+          sub={`non paid ${pctStr(nonPaid.sess > 0 ? (nonPaid.trans / nonPaid.sess) * 100 : 0, 2)}`}
+        />
+      </div>
+
+      <Card>
+        <CardHeader title={`Sessioni per gruppo · ${range.days} giorni`} />
+        <div style={{ width: "100%", height: 300 }}>
+          <ResponsiveContainer>
+            <AreaChart data={serie} margin={{ top: 10, right: 12, bottom: 4, left: 8 }}>
+              <CartesianGrid stroke={palette.grid} vertical={false} />
+              <XAxis dataKey="label" tick={{ fill: palette.axis, fontSize: 11 }} axisLine={{ stroke: palette.cardBorder }} tickLine={false} interval="preserveStartEnd" minTickGap={30} />
+              <YAxis tick={{ fill: palette.axis, fontSize: 11 }} axisLine={{ stroke: palette.cardBorder }} tickLine={false} tickFormatter={(v) => integer(Number(v))} width={60} />
+              <Tooltip contentStyle={{ background: palette.tooltipBg, border: `1px solid ${palette.tooltipBorder}`, borderRadius: 8, color: palette.text }} formatter={(v: unknown, n: unknown) => [integer(Number(v ?? 0)), String(n)]} />
+              <Legend wrapperStyle={{ fontSize: 11, color: palette.textMuted }} iconType="rect" />
+              {GRUPPI.map((g) => (
+                <Area key={g} type="monotone" dataKey={g} stackId="1" stroke={COLORE_GRUPPO[g]} fill={COLORE_GRUPPO[g]} fillOpacity={0.55} />
+              ))}
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      </Card>
+
+      <Card>
+        <CardHeader title={`Dettaglio per gruppo · ${range.days} giorni${coperto ? ` · ${COMPARE_LABEL[compare]}` : ""}`} />
+        <div style={{ overflowX: "auto" }}>
+          <table style={ts.table}>
+            <thead>
+              <tr>
+                <th style={ts.th}>Gruppo</th>
+                <th style={{ ...ts.th, ...ts.thRight }}>Sessioni</th>
+                <th style={{ ...ts.th, ...ts.thRight }}>Quota</th>
+                {coperto && <th style={{ ...ts.th, ...ts.thRight }}>Δ sess.</th>}
+                <th style={{ ...ts.th, ...ts.thRight }}>Utenti</th>
+                <th style={{ ...ts.th, ...ts.thRight }}>Nuovi</th>
+                <th style={{ ...ts.th, ...ts.thRight }}>Trans.</th>
+                <th style={{ ...ts.th, ...ts.thRight }}>Revenue GA4</th>
+                <th style={{ ...ts.th, ...ts.thRight }}>CVR</th>
+                <th style={{ ...ts.th, ...ts.thRight }}>Revenue/sessione</th>
+              </tr>
+            </thead>
+            <tbody>
+              {GRUPPI.map((g) => {
+                const v = ora.get(g)!;
+                const p = prima.get(g)!;
+                const d = coperto ? calcDelta(v.sess, p.sess) : null;
+                return (
+                  <tr key={g}>
+                    <td style={{ ...ts.tdBase, color: palette.text, fontWeight: 600 }}>
+                      <span style={{ display: "inline-block", width: 9, height: 9, borderRadius: 2, background: COLORE_GRUPPO[g], marginRight: 7 }} />
+                      {g}
+                    </td>
+                    <td style={{ ...ts.tdBase, ...ts.tdRight, fontWeight: 600 }}>{integer(v.sess)}</td>
+                    <td style={{ ...ts.tdBase, ...ts.tdRight }}>{totSess > 0 ? pctStr((v.sess / totSess) * 100, 1) : "—"}</td>
+                    {coperto && <td style={{ ...ts.tdBase, ...ts.tdRight, color: d?.color ?? ts.tdBase.color, fontWeight: 600 }}>{d ? `${d.arrow} ${d.label}` : "—"}</td>}
+                    <td style={{ ...ts.tdBase, ...ts.tdRight }}>{integer(v.users)}</td>
+                    <td style={{ ...ts.tdBase, ...ts.tdRight }}>{integer(v.nuovi)}</td>
+                    <td style={{ ...ts.tdBase, ...ts.tdRight, fontWeight: v.trans > 0 ? 700 : 400 }}>{integer(v.trans)}</td>
+                    <td style={{ ...ts.tdBase, ...ts.tdRight }}>{v.rev > 0 ? eur(v.rev) : "—"}</td>
+                    <td style={{ ...ts.tdBase, ...ts.tdRight }}>{pctStr(v.sess > 0 ? (v.trans / v.sess) * 100 : 0, 2)}</td>
+                    <td style={{ ...ts.tdBase, ...ts.tdRight }}>{v.sess > 0 && v.rev > 0 ? eur(v.rev / v.sess) : "—"}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      <Card>
+        <CardHeader title="Come sono stati raggruppati i canali" />
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 14 }}>
+          {GRUPPI.map((g) => {
+            const dentro = Array.from(canaliPerGruppo.get(g)?.entries() ?? []).sort((a, b) => b[1] - a[1]);
+            return (
+              <div key={g}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: palette.text, marginBottom: 6 }}>
+                  <span style={{ display: "inline-block", width: 9, height: 9, borderRadius: 2, background: COLORE_GRUPPO[g], marginRight: 7 }} />
+                  {g}
+                </div>
+                {dentro.length === 0 ? (
+                  <div style={{ fontSize: 11, color: palette.textFaint }}>nessun canale nel periodo</div>
+                ) : dentro.map(([canale, sess]) => (
+                  <div key={canale} style={{ display: "flex", justifyContent: "space-between", gap: 10, fontSize: 11, color: palette.textMuted, padding: "2px 0" }}>
+                    <span>{canale}</span>
+                    <span style={{ color: palette.textDim }}>{integer(sess)}</span>
+                  </div>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+        <p style={{ fontSize: 11, color: palette.textDim, marginTop: 12, marginBottom: 0, lineHeight: 1.6 }}>
+          Display e Cross-network (Performance Max, Advantage+) sono traffico comprato e stanno con i paid.
+          Email e referral restano in &laquo;Altro&raquo;: non sono organici, ma nemmeno spesa pubblicitaria.
+          Le sessioni sono quelle attribuite da GA4, che usa un modello diverso da quello delle piattaforme:
+          i numeri qui non tornano identici a quelli di Meta o Google Ads.
+        </p>
       </Card>
     </div>
   );

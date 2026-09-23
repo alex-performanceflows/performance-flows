@@ -22,8 +22,9 @@ import {
   creativeKey, isVideoFormat, useCreativeWindows, valutazioneWindow,
   type CreativeMetricsRaw, type CreativeWindows,
 } from "./creatives";
+import { PaesiView } from "./PaesiView";
 
-type SubTab = "riepilogo" | "obiettivo" | "piattaforma" | "campagne" | "search" | "creative" | "formati" | "pubblico";
+type SubTab = "riepilogo" | "obiettivo" | "piattaforma" | "campagne" | "search" | "creative" | "formati" | "pubblico" | "paesi";
 
 const SUB: { key: SubTab; label: string }[] = [
   { key: "riepilogo", label: "Riepilogo" },
@@ -34,6 +35,7 @@ const SUB: { key: SubTab; label: string }[] = [
   { key: "creative", label: "Creatività Meta" },
   { key: "formati", label: "Cosa vince" },
   { key: "pubblico", label: "Pubblico e placement" },
+  { key: "paesi", label: "Paesi" },
 ];
 
 export function AdvertisingTab({ data }: { data: GondolinaData }) {
@@ -67,6 +69,7 @@ export function AdvertisingTab({ data }: { data: GondolinaData }) {
       {sub === "creative" && <CreativitaMetaView data={data} />}
       {sub === "formati" && <FormatiSoggettiView data={data} />}
       {sub === "pubblico" && <PubblicoPlacementView data={data} />}
+      {sub === "paesi" && <PaesiView data={data} />}
     </div>
   );
 }
@@ -293,20 +296,46 @@ function CampagneView({ data }: { data: GondolinaData }) {
 
   const objectives = data.objectives ?? [];
 
+  /**
+   * I carrelli non sono ancora in adv.daily. Invece di inventarli, la
+   * colonna si accende da sola il giorno in cui il motore li aggiunge:
+   * basta che l'intestazione del payload li dichiari.
+   */
+  const atcIdx = useMemo(() => {
+    const head = data.adv?.head ?? [];
+    return head.findIndex((h) => /carrell|add.?to.?cart|\batc\b/i.test(String(h)));
+  }, [data.adv?.head]);
+  const haAtc = atcIdx >= 0;
+
   const rows = useMemo(() => {
-    const grouped = new Map<string, { plat: string; obj: string; tipo: string; spesa: number; imp: number; click: number; conv: number; valore: number }>();
+    const grouped = new Map<string, { plat: string; obj: string; tipo: string; spesa: number; imp: number; click: number; conv: number; valore: number; indicazioni: number; chiamate: number; atc: number }>();
     for (const r of data.adv?.daily ?? []) {
       const d = String(r[0]); if (d < range.start || d > range.end) continue;
       const key = String(r[3] ?? "");
-      const g = grouped.get(key) ?? { plat: String(r[1] ?? ""), obj: String(r[2] ?? ""), tipo: String(r[4] ?? ""), spesa: 0, imp: 0, click: 0, conv: 0, valore: 0 };
+      const g = grouped.get(key) ?? {
+        plat: String(r[1] ?? ""), obj: String(r[2] ?? ""), tipo: String(r[4] ?? ""),
+        spesa: 0, imp: 0, click: 0, conv: 0, valore: 0, indicazioni: 0, chiamate: 0, atc: 0,
+      };
       g.spesa += Number(r[5]) || 0;
       g.imp += Number(r[6]) || 0;
       g.click += Number(r[7]) || 0;
       g.conv += Number(r[8]) || 0;
       g.valore += Number(r[9]) || 0;
+      g.indicazioni += Number(r[10]) || 0;
+      g.chiamate += Number(r[11]) || 0;
+      if (atcIdx >= 0) g.atc += Number(r[atcIdx]) || 0;
       grouped.set(key, g);
     }
-    let arr = Array.from(grouped.entries()).map(([campagna, v]) => ({ campagna, ...v }));
+    // I rapporti stanno sulla riga, non nel render: così si possono ordinare
+    let arr = Array.from(grouped.entries()).map(([campagna, v]) => ({
+      campagna, ...v,
+      ctr: v.imp > 0 ? (v.click / v.imp) * 100 : 0,
+      cpc: v.click > 0 ? v.spesa / v.click : 0,
+      cpm: v.imp > 0 ? (v.spesa / v.imp) * 1000 : 0,
+      cpa: v.conv > 0 ? v.spesa / v.conv : 0,
+      convRate: v.click > 0 ? (v.conv / v.click) * 100 : 0,
+      costoAtc: v.atc > 0 ? v.spesa / v.atc : 0,
+    }));
     if (platFilter !== "all") arr = arr.filter((r) => r.plat === platFilter);
     if (objFilter !== "all") arr = arr.filter((r) => r.obj === objFilter);
     if (search) {
@@ -320,7 +349,12 @@ function CampagneView({ data }: { data: GondolinaData }) {
       return sortDir === "desc" ? -cmp : cmp;
     });
     return arr;
-  }, [data.adv?.daily, range, platFilter, objFilter, search, sortBy, sortDir]);
+  }, [data.adv?.daily, range, platFilter, objFilter, search, sortBy, sortDir, atcIdx]);
+
+  // Con zero conversioni, tasso e costo per conversione sarebbero due colonne
+  // di trattini: compaiono quando c'e' davvero qualcosa da leggere.
+  const haConv = rows.some((r) => r.conv > 0);
+  const colonneTabella = 15 + (haAtc ? 2 : 0) + (haConv ? 2 : 0);
 
   function toggleSort(col: string) {
     if (sortBy === col) setSortDir(sortDir === "desc" ? "asc" : "desc");
@@ -370,15 +404,23 @@ function CampagneView({ data }: { data: GondolinaData }) {
                 {sortHdr("tipo", "Tipo")}
                 {sortHdr("spesa", "Spesa", true)}
                 {sortHdr("imp", "Imp.", true)}
+                {sortHdr("cpm", "CPM", true)}
                 {sortHdr("click", "Click", true)}
+                {sortHdr("ctr", "CTR", true)}
+                {sortHdr("cpc", "CPC", true)}
+                {haAtc && sortHdr("atc", "Carrelli", true)}
+                {haAtc && sortHdr("costoAtc", "Costo/carr.", true)}
                 {sortHdr("conv", "Conv.", true)}
+                {haConv && sortHdr("convRate", "Click → conv.", true)}
+                {haConv && sortHdr("cpa", "Costo/conv.", true)}
+                {sortHdr("indicazioni", "Indicazioni", true)}
+                {sortHdr("chiamate", "Chiamate", true)}
                 {sortHdr("valore", "Valore", true)}
                 <th style={{ ...ts.th, ...ts.thRight }}>ROAS</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((r) => {
-                const ctr = r.imp > 0 ? (r.click / r.imp) * 100 : 0;
                 const roas = r.spesa > 0 ? r.valore / r.spesa : 0;
                 const isOnline = SALES_OBJECTIVES.has(r.obj.toUpperCase()) || r.obj === "Online";
                 const bad = isOnline && roas > 0 && roas < 1;
@@ -398,12 +440,21 @@ function CampagneView({ data }: { data: GondolinaData }) {
                       <td style={{ ...ts.tdBase, fontSize: 10, color: palette.textDim }}>{r.tipo}</td>
                       <td style={{ ...ts.tdBase, ...ts.tdRight, fontWeight: 600 }}>{eur(r.spesa)}</td>
                       <td style={{ ...ts.tdBase, ...ts.tdRight }}>{integer(r.imp)}</td>
-                      <td style={{ ...ts.tdBase, ...ts.tdRight }} title={`CTR ${pctStr(ctr, 2)}`}>{integer(r.click)}</td>
+                      <td style={{ ...ts.tdBase, ...ts.tdRight }}>{r.imp > 0 ? eur(r.cpm) : "—"}</td>
+                      <td style={{ ...ts.tdBase, ...ts.tdRight }}>{integer(r.click)}</td>
+                      <td style={{ ...ts.tdBase, ...ts.tdRight }}>{r.imp > 0 ? pctStr(r.ctr, 2) : "—"}</td>
+                      <td style={{ ...ts.tdBase, ...ts.tdRight }}>{r.click > 0 ? eur(r.cpc) : "—"}</td>
+                      {haAtc && <td style={{ ...ts.tdBase, ...ts.tdRight }}>{integer(r.atc)}</td>}
+                      {haAtc && <td style={{ ...ts.tdBase, ...ts.tdRight, fontWeight: r.atc > 0 ? 600 : 400 }}>{r.atc > 0 ? eur(r.costoAtc) : "—"}</td>}
                       <td style={{ ...ts.tdBase, ...ts.tdRight, fontWeight: r.conv > 0 ? 600 : 400 }}>{num(r.conv, 1)}</td>
+                      {haConv && <td style={{ ...ts.tdBase, ...ts.tdRight }}>{r.click > 0 && r.conv > 0 ? pctStr(r.convRate, 2) : "—"}</td>}
+                      {haConv && <td style={{ ...ts.tdBase, ...ts.tdRight }}>{r.conv > 0 ? eur(r.cpa) : "—"}</td>}
+                      <td style={{ ...ts.tdBase, ...ts.tdRight, color: r.indicazioni > 0 ? GOLD : palette.textFaint, fontWeight: r.indicazioni > 0 ? 600 : 400 }}>{integer(r.indicazioni)}</td>
+                      <td style={{ ...ts.tdBase, ...ts.tdRight, color: r.chiamate > 0 ? GOLD : palette.textFaint, fontWeight: r.chiamate > 0 ? 600 : 400 }}>{integer(r.chiamate)}</td>
                       <td style={{ ...ts.tdBase, ...ts.tdRight }}>{eur(r.valore)}</td>
                       <td style={{ ...ts.tdBase, ...ts.tdRight, color: bad ? NEGATIVE : roas >= AD_CFG.ROAS_GOOD ? POSITIVE : ts.tdBase.color, fontWeight: 700 }}>{num(roas, 2)}</td>
                     </tr>
-                    {isOpen && <CampaignExpanded data={data} campagna={r.campagna} palette={palette} />}
+                    {isOpen && <CampaignExpanded data={data} campagna={r.campagna} palette={palette} colonne={colonneTabella} />}
                   </React.Fragment>
                 );
               })}
@@ -415,7 +466,7 @@ function CampagneView({ data }: { data: GondolinaData }) {
   );
 }
 
-function CampaignExpanded({ data, campagna, palette }: { data: GondolinaData; campagna: string; palette: import("./shared").Palette }) {
+function CampaignExpanded({ data, campagna, palette, colonne }: { data: GondolinaData; campagna: string; palette: import("./shared").Palette; colonne: number }) {
   const { range } = useDateRange();
   const daily = useMemo(() => {
     return (data.adv?.daily ?? [])
@@ -425,7 +476,7 @@ function CampaignExpanded({ data, campagna, palette }: { data: GondolinaData; ca
   }, [data.adv?.daily, campagna, range]);
   return (
     <tr>
-      <td colSpan={10} style={{ padding: "12px 16px", background: palette.divider }}>
+      <td colSpan={colonne} style={{ padding: "12px 16px", background: palette.divider }}>
         <div style={{ width: "100%", height: 180 }}>
           <ResponsiveContainer>
             <LineChart data={daily} margin={{ top: 6, right: 12, bottom: 4, left: 8 }}>
